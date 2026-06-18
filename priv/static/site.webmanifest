@@ -1,0 +1,17 @@
+{
+  "name": "Readout",
+  "short_name": "Readout",
+  "description": "Concise AI summaries and tags from the sources you follow.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

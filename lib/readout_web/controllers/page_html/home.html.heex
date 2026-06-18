@@ -1,0 +1,32 @@
+<Layouts.flash_group flash={@flash} />
+
+<main class="min-h-screen bg-base-100 px-4 py-10 sm:px-6 lg:px-8">
+  <div class="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl flex-col justify-between">
+    <header class="flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <img src={~p"/images/logo.svg"} width="36" height="36" alt="" />
+        <span class="text-sm font-semibold tracking-wide">Readout</span>
+      </a>
+      <Layouts.theme_toggle />
+    </header>
+
+    <section class="py-20 sm:py-28">
+      <p class="text-sm font-medium uppercase tracking-[0.18em] text-base-content/50">
+        Personal intelligence briefing
+      </p>
+      <h1 class="mt-5 max-w-3xl text-5xl font-semibold leading-tight text-base-content sm:text-6xl">
+        The news you follow, distilled into what matters.
+      </h1>
+      <p class="mt-6 max-w-2xl text-lg leading-8 text-base-content/70">
+        Readout collects articles from your sources, extracts the useful context, and turns each story into a concise AI summary with focused tags.
+      </p>
+      <div class="mt-10 flex flex-wrap gap-3">
+        <a href={~p"/demo"} class="btn btn-primary">Open demo</a>
+      </div>
+    </section>
+
+    <footer class="border-t border-base-300 py-6 text-sm text-base-content/50">
+      Built for signal, not scroll.
+    </footer>
+  </div>
+</main>

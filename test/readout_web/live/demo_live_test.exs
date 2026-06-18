@@ -1,0 +1,143 @@
+defmodule ReadoutWeb.DemoLiveTest do
+  use ReadoutWeb.ConnCase, async: true
+  use Oban.Testing, repo: Readout.Repo
+
+  import Phoenix.LiveViewTest
+
+  alias Readout.{Accounts, Ingestion, Repo}
+  alias Readout.Accounts.Scope
+  alias Readout.Analysis.ArticleSummary
+  alias Readout.Ingestion.{Article, ArticleContent}
+  alias Readout.Workers.ArticleScrapeWorker
+
+  test "mount shows the demo user and their Sources", %{conn: conn} do
+    {:ok, user} = Accounts.get_or_create_demo_user()
+    scope = Scope.for_user(user)
+    stub_valid_feed()
+    {:ok, source} = Ingestion.subscribe_source(scope, %{url: "https://example.com/feed.xml"})
+
+    {:ok, _view, html} = live(conn, ~p"/demo")
+
+    assert html =~ "Readout"
+    assert html =~ "demo@readout.local"
+    assert html =~ source.name
+  end
+
+  test "subscription displays an invalid URL error", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    view
+    |> form("form", source: %{url: "not-a-url"})
+    |> render_submit()
+
+    assert has_element?(view, "#source-url-error", "Enter a valid HTTP or HTTPS URL.")
+  end
+
+  test "a fetch notification prepends a new Article without reloading", %{conn: conn} do
+    {:ok, user} = Accounts.get_or_create_demo_user()
+    scope = Scope.for_user(user)
+    stub_valid_feed()
+    {:ok, source} = Ingestion.subscribe_source(scope, %{url: "https://example.com/feed.xml"})
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    Repo.insert!(%Article{
+      source_id: source.id,
+      canonical_url: "https://example.com/live-article",
+      title: "Live article"
+    })
+
+    Phoenix.PubSub.broadcast(
+      Readout.PubSub,
+      "source:#{source.id}:fetched",
+      {:articles_fetched, source.id}
+    )
+
+    assert render(view) =~ "Live article"
+  end
+
+  test "summarize button enqueues scrape for the article", %{conn: conn} do
+    {:ok, user} = Accounts.get_or_create_demo_user()
+    scope = Scope.for_user(user)
+    stub_valid_feed()
+    {:ok, source} = Ingestion.subscribe_source(scope, %{url: "https://example.com/feed.xml"})
+
+    article =
+      Repo.insert!(%Article{
+        source_id: source.id,
+        canonical_url: "https://example.com/article",
+        title: "Article"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    view
+    |> element("#articles-#{article.id} button", "Tóm tắt")
+    |> render_click()
+
+    assert_enqueued(worker: ArticleScrapeWorker, args: %{article_id: article.id})
+    assert render(view) =~ "Đang xử lý"
+  end
+
+  test "scrape notification renders Content state without reloading", %{conn: conn} do
+    {:ok, user} = Accounts.get_or_create_demo_user()
+    scope = Scope.for_user(user)
+    stub_valid_feed()
+    {:ok, source} = Ingestion.subscribe_source(scope, %{url: "https://example.com/feed.xml"})
+
+    article =
+      Repo.insert!(%Article{
+        source_id: source.id,
+        canonical_url: "https://example.com/article",
+        title: "Article"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    Repo.insert!(%ArticleContent{article_id: article.id, text: "Already scraped"})
+
+    Phoenix.PubSub.broadcast(
+      Readout.PubSub,
+      "source:#{source.id}:scraped",
+      {:article_scraped, article.id}
+    )
+
+    assert render(view) =~ "Đã cào 15 ký tự"
+  end
+
+  test "summary notification renders Summary and Tags without reloading", %{conn: conn} do
+    {:ok, user} = Accounts.get_or_create_demo_user()
+    scope = Scope.for_user(user)
+    stub_valid_feed()
+    {:ok, source} = Ingestion.subscribe_source(scope, %{url: "https://example.com/feed.xml"})
+
+    article =
+      Repo.insert!(%Article{
+        source_id: source.id,
+        canonical_url: "https://example.com/article",
+        title: "Article"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    Repo.insert!(%ArticleSummary{
+      article_id: article.id,
+      summary_text: "Bản tóm tắt hiển thị ngay.",
+      tags: ["ai", "technology"]
+    })
+
+    Phoenix.PubSub.broadcast(
+      Readout.PubSub,
+      "source:#{source.id}:summarized",
+      {:article_summarized, article.id}
+    )
+
+    assert render(view) =~ "Bản tóm tắt hiển thị ngay."
+    assert render(view) =~ "technology"
+  end
+
+  defp stub_valid_feed do
+    Req.Test.stub(Readout.HTTP, fn conn ->
+      Plug.Conn.send_resp(conn, 200, "<rss><channel></channel></rss>")
+    end)
+  end
+end
