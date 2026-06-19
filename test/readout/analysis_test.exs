@@ -30,14 +30,12 @@ defmodule Readout.AnalysisTest do
       request = Jason.decode!(body)
       prompt = get_in(request, ["contents", Access.at(0), "parts", Access.at(0), "text"])
 
-      assert get_in(request, ["generationConfig", "responseFormat", "text", "mimeType"]) ==
-               "application/json"
+      assert get_in(request, ["generationConfig", "responseMimeType"]) == "application/json"
 
-      assert get_in(request, ["generationConfig", "responseFormat", "text", "schema", "required"]) ==
-               [
-                 "summary_text",
-                 "tags"
-               ]
+      assert get_in(request, ["generationConfig", "responseSchema", "required"]) == [
+               "summary_text",
+               "tags"
+             ]
 
       assert String.contains?(prompt, String.duplicate("a", 15_000))
       refute String.contains?(prompt, String.duplicate("a", 15_001))

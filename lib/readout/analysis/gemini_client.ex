@@ -58,12 +58,8 @@ defmodule Readout.Analysis.GeminiClient do
         }
       ],
       generationConfig: %{
-        responseFormat: %{
-          text: %{
-            mimeType: "application/json",
-            schema: @schema
-          }
-        }
+        responseMimeType: "application/json",
+        responseSchema: @schema
       }
     }
   end
