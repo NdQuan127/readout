@@ -2,20 +2,18 @@ defmodule Readout.Analysis do
   require Logger
 
   alias Readout.Analysis.{ArticleSummary, GeminiClient}
-  alias Readout.Ingestion.Article
+  alias Readout.Ingestion
   alias Readout.Repo
 
   @max_content_length 15_000
   @max_tags 3
 
   def summarize_article(article_id) do
-    case Repo.get(Article, article_id) do
+    case Ingestion.get_article(article_id) do
       nil ->
         {:cancel, "Article not found"}
 
       article ->
-        article = Repo.preload(article, [:content, :summary])
-
         if is_nil(article.content) do
           {:cancel, "Content not found"}
         else
