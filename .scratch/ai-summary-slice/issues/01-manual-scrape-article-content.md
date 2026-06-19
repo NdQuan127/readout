@@ -1,6 +1,6 @@
 # Manual scrape → ArticleContent, hiện trạng thái lên DemoLive
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 

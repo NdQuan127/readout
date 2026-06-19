@@ -1,10 +1,12 @@
 # 0006. Dùng Gemini Flash Lite + structured output, bỏ fallback machinery của legacy
 
-Chúng tôi quyết định sinh Summary qua **Gemini 3.1 Flash Lite** với **structured output (`responseSchema`)** để ép model trả về JSON đúng schema ngay tầng decode, và **không** port lại đống cơ chế chống lỗi JSON của legacy (repair JSON, fallback plain-text 4 bước, sanitize LaTeX, heuristic phát hiện meta-text/markdown cụt, xoay vòng nhiều model).
+Chúng tôi quyết định sinh Summary qua **Gemini 3.1 Flash Lite** với **structured output** để ép model trả về JSON đúng schema ngay tầng decode, và **không** port lại đống cơ chế chống lỗi JSON của legacy (repair JSON, fallback plain-text 4 bước, sanitize LaTeX, heuristic phát hiện meta-text/markdown cụt, xoay vòng nhiều model).
+
+Với REST `generateContent`, payload structured output dùng `generationConfig.responseMimeType = "application/json"` và `generationConfig.responseSchema`. Không dùng `generationConfig.responseFormat.text.mimeType/schema` cho endpoint `v1beta/models/{model}:generateContent`; shape đó từng trả `HTTP 400 INVALID_ARGUMENT` với Gemini API.
 
 ## Bối cảnh
 
-Legacy chạy trên **Gemma** — model open-weight không hỗ trợ structured output đáng tin, nên buộc phải đẻ ra ~260 dòng băng dán để vá JSON rác. Phần lớn độ phức tạp đó là hệ quả của lựa chọn model, không phải bản chất bài toán. Gemini Flash Lite hỗ trợ `responseSchema` native (use case official: trích xuất tài liệu thô → record sạch để ghi DB), nên JSON rác gần như biến mất và lớp fallback trở thành thừa. Đây cũng là điều lệch khỏi mô tả trong PRD ("JSON mode + hàm làm sạch markdown wrapper") — với `responseSchema` thì không cần bước làm sạch đó.
+Legacy chạy trên **Gemma** — model open-weight không hỗ trợ structured output đáng tin, nên buộc phải đẻ ra ~260 dòng băng dán để vá JSON rác. Phần lớn độ phức tạp đó là hệ quả của lựa chọn model, không phải bản chất bài toán. Gemini Flash Lite hỗ trợ `responseSchema` native (use case official: trích xuất tài liệu thô → record sạch để ghi DB), nên JSON rác gần như biến mất và lớp fallback trở thành thừa. Đây cũng là điều lệch khỏi mô tả trong PRD ("JSON mode + hàm làm sạch markdown wrapper") — với `responseMimeType` + `responseSchema` thì không cần bước làm sạch đó.
 
 ## Trade-off
 
