@@ -1,6 +1,6 @@
 # Magic-link auth cho operator, khóa `/demo` theo `current_scope`
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
