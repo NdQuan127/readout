@@ -1,5 +1,5 @@
 ---
-name: phx:perf
+name: phx-perf
 description: Analyze Elixir/Phoenix performance — N+1 queries, assign bloat, ecto optimization, genserver bottlenecks. Use when slowness, timeouts, or high memory reported.
 argument-hint: "[page|context|module] [--focus ecto|liveview|otp]"
 ---
@@ -12,11 +12,11 @@ and OTP layers. Prioritize findings by impact and effort.
 ## Usage
 
 ```
-/phx:perf                           # Analyze full project
-/phx:perf lib/my_app/accounts.ex    # Analyze specific module
-/phx:perf --focus ecto              # Ecto queries only
-/phx:perf --focus liveview          # LiveView memory only
-/phx:perf --focus otp               # OTP bottlenecks only
+/phx-perf                           # Analyze full project
+/phx-perf lib/my_app/accounts.ex    # Analyze specific module
+/phx-perf --focus ecto              # Ecto queries only
+/phx-perf --focus liveview          # LiveView memory only
+/phx-perf --focus otp               # OTP bottlenecks only
 ```
 
 ## Arguments

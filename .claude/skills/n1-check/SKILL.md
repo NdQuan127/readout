@@ -1,5 +1,5 @@
 ---
-name: ecto:n1-check
+name: ecto-n1-check
 description: "Detect N+1 query anti-patterns specifically — Repo calls inside Enum/for loops, missing preloads on associations. Use when N+1 is explicitly suspected, NOT for unrelated Ecto questions or wider database performance."
 allowed-tools: Read, Grep, Glob, Bash
 ---

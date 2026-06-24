@@ -1,5 +1,5 @@
 ---
-name: phx:boundaries
+name: phx-boundaries
 description: Analyze Phoenix context boundaries and module coupling via mix xref. Use when checking cross-context calls, validating dependencies, before splitting modules, or reviewing architecture.
 argument-hint: [--assess|--fix]
 allowed-tools: Read, Grep, Glob, Bash
@@ -12,9 +12,9 @@ Analyze module dependencies to ensure clean context separation and proper archit
 ## Usage
 
 ```
-/phx:boundaries              # Check for violations
-/phx:boundaries --assess     # Score context health (0-100)
-/phx:boundaries --fix        # Suggest fixes for violations
+/phx-boundaries              # Check for violations
+/phx-boundaries --assess     # Score context health (0-100)
+/phx-boundaries --fix        # Suggest fixes for violations
 ```
 
 ## `--assess` Mode: Context Health Score
