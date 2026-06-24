@@ -1,14 +1,12 @@
 defmodule ReadoutWeb.DemoLive do
   use ReadoutWeb, :live_view
 
-  alias Readout.{Accounts, Ingestion}
-  alias Readout.Accounts.Scope
+  alias Readout.Ingestion
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, user} = Accounts.get_or_create_demo_user()
-    scope = Scope.for_user(user)
-    sources = Ingestion.list_sources(scope)
+    current_scope = socket.assigns.current_scope
+    sources = Ingestion.list_sources(current_scope)
 
     if connected?(socket) do
       Enum.each(sources, &subscribe_to_source/1)
@@ -16,24 +14,22 @@ defmodule ReadoutWeb.DemoLive do
 
     {:ok,
      socket
-     |> assign(:user, user)
-     |> assign(:scope, scope)
      |> assign(:sources, sources)
      |> assign(:url, "")
      |> assign(:error, nil)
      |> assign(:pending_article_ids, MapSet.new())
-     |> stream(:articles, Ingestion.list_articles(scope))}
+     |> stream(:articles, Ingestion.list_articles(current_scope))}
   end
 
   @impl true
   def handle_event("subscribe", %{"source" => %{"url" => url}}, socket) do
-    case Ingestion.subscribe_source(socket.assigns.scope, %{url: url}) do
+    case Ingestion.subscribe_source(socket.assigns.current_scope, %{url: url}) do
       {:ok, source} ->
         subscribe_to_source(source)
 
         {:noreply,
          socket
-         |> assign(:sources, Ingestion.list_sources(socket.assigns.scope))
+         |> assign(:sources, Ingestion.list_sources(socket.assigns.current_scope))
          |> assign(:url, "")
          |> assign(:error, nil)}
 
@@ -44,7 +40,7 @@ defmodule ReadoutWeb.DemoLive do
 
   @impl true
   def handle_event("summarize", %{"id" => article_id}, socket) do
-    case Ingestion.enqueue_article_scrape(article_id) do
+    case Ingestion.enqueue_article_scrape(socket.assigns.current_scope, article_id) do
       {:ok, _job} ->
         socket =
           socket
@@ -63,7 +59,7 @@ defmodule ReadoutWeb.DemoLive do
   @impl true
   def handle_info({:articles_fetched, source_id}, socket) do
     socket =
-      socket.assigns.scope
+      socket.assigns.current_scope
       |> Ingestion.list_articles(source_id)
       |> Enum.reverse()
       |> Enum.reduce(socket, &stream_insert(&2, :articles, &1, at: 0))
@@ -93,7 +89,7 @@ defmodule ReadoutWeb.DemoLive do
       <div class="grid gap-8 lg:grid-cols-[18rem_1fr]">
         <section>
           <h1 class="text-2xl font-semibold">Readout</h1>
-          <p class="mt-1 text-sm text-base-content/70">{@user.email}</p>
+          <p class="mt-1 text-sm text-base-content/70">{@current_scope.user.email}</p>
 
           <form phx-submit="subscribe" class="mt-6 space-y-2">
             <label for="source-url" class="block text-sm font-medium">RSS or Atom URL</label>
@@ -159,7 +155,7 @@ defmodule ReadoutWeb.DemoLive do
   end
 
   defp refresh_article(socket, article_id) do
-    case Ingestion.get_article(article_id) do
+    case Ingestion.get_article(socket.assigns.current_scope, article_id) do
       nil -> socket
       article -> stream_insert(socket, :articles, article)
     end

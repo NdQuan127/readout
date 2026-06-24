@@ -70,6 +70,8 @@ config :readout, ReadoutWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :readout, dev_routes: true
 
+config :readout, Readout.Mailer, adapter: Swoosh.Adapters.Local
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

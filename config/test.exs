@@ -1,5 +1,8 @@
 import Config
 
+# Only in tests, remove the complexity from the password hashing algorithm
+config :bcrypt_elixir, :log_rounds, 1
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
@@ -17,6 +20,8 @@ config :readout, Readout.Repo,
 config :readout, Oban, testing: :manual
 
 config :readout, Readout.HTTP, plug: {Req.Test, Readout.HTTP}
+
+config :readout, Readout.Mailer, adapter: Swoosh.Adapters.Test
 
 config :readout, Readout.Analysis.GeminiClient,
   endpoint: "https://gemini.example",

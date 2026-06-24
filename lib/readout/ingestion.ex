@@ -59,16 +59,35 @@ defmodule Readout.Ingestion do
     |> Repo.all()
   end
 
-  def get_article(article_id) do
-    Article
-    |> Repo.get(article_id)
-    |> Repo.preload([:content, :summary])
+  def get_article(%Scope{user: %{id: user_id}}, article_id) do
+    with {:ok, article_id} <- Ecto.UUID.cast(article_id) do
+      from(article in Article,
+        join: user_source in UserSource,
+        on: user_source.source_id == article.source_id,
+        where: user_source.user_id == ^user_id and article.id == ^article_id
+      )
+      |> preload([:content, :summary])
+      |> Repo.one()
+    else
+      :error -> nil
+    end
   end
 
-  def enqueue_article_scrape(article_id) do
-    %{article_id: article_id}
-    |> ArticleScrapeWorker.new()
-    |> Oban.insert()
+  def enqueue_article_scrape(%Scope{} = scope, article_id) do
+    case get_article(scope, article_id) do
+      nil -> {:error, :not_found}
+      _article -> %{article_id: article_id} |> ArticleScrapeWorker.new() |> Oban.insert()
+    end
+  end
+
+  def get_article_for_processing(article_id) do
+    with {:ok, article_id} <- Ecto.UUID.cast(article_id) do
+      Article
+      |> Repo.get(article_id)
+      |> Repo.preload([:content, :summary])
+    else
+      :error -> nil
+    end
   end
 
   def scrape_article(article_id) do

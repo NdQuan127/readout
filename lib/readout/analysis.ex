@@ -9,7 +9,7 @@ defmodule Readout.Analysis do
   @max_tags 3
 
   def summarize_article(article_id) do
-    case Ingestion.get_article(article_id) do
+    case Ingestion.get_article_for_processing(article_id) do
       nil ->
         {:cancel, "Article not found"}
 
