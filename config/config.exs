@@ -26,11 +26,12 @@ config :readout,
 
 config :readout, Oban,
   repo: Readout.Repo,
-  queues: [source_fetch: 5, article_scrape: 5, article_summarize: 2],
+  queues: [source_fetch: 5, article_scrape: 5, article_summarize: 2, digest_refresh: 5],
   plugins: [
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 */3 * * *", Readout.Workers.SourceFetchCronWorker}
+       {"0 */3 * * *", Readout.Workers.SourceFetchCronWorker},
+       {"30 */3 * * *", Readout.Workers.DigestRefreshCronWorker}
      ]}
   ]
 
