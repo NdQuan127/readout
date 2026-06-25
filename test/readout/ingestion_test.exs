@@ -4,7 +4,7 @@ defmodule Readout.IngestionTest do
 
   alias Readout.{Accounts, Ingestion}
   alias Readout.Accounts.Scope
-  alias Readout.Ingestion.{Article, ArticleContent}
+  alias Readout.Ingestion.{Article, ArticleContent, Source, SourceFetcher}
   alias Readout.Workers.{ArticleScrapeWorker, ArticleSummarizeWorker, SourceFetchWorker}
 
   test "subscription rejects an unreachable feed before storing it" do
@@ -79,6 +79,48 @@ defmodule Readout.IngestionTest do
              }
            ] =
              Ingestion.list_articles(scope)
+  end
+
+  test "source fetcher enqueues scrape only for newly inserted Articles" do
+    source = Repo.insert!(%Source{canonical_url: "https://example.com/feed.xml", name: "Example"})
+    source_id = source.id
+    Phoenix.PubSub.subscribe(Readout.PubSub, "source:#{source_id}:fetched")
+
+    Req.Test.stub(Readout.HTTP, fn conn ->
+      Plug.Conn.send_resp(conn, 200, """
+      <rss version="2.0">
+        <channel>
+          <item>
+            <title>First new article</title>
+            <link>https://example.com/first-new-article</link>
+            <pubDate>Tue, 09 Jun 2026 08:30:00 GMT</pubDate>
+          </item>
+          <item>
+            <title>Second new article</title>
+            <link>https://example.com/second-new-article</link>
+            <pubDate>Tue, 09 Jun 2026 09:30:00 GMT</pubDate>
+          </item>
+        </channel>
+      </rss>
+      """)
+    end)
+
+    assert {:ok, inserted_article_ids} = SourceFetcher.run(source.id)
+    assert_receive {:articles_fetched, ^source_id}
+
+    articles = Repo.all(from article in Article, where: article.source_id == ^source.id)
+    article_ids = Enum.map(articles, & &1.id)
+
+    assert Enum.sort(inserted_article_ids) == Enum.sort(article_ids)
+
+    for article <- articles do
+      assert_enqueued(worker: ArticleScrapeWorker, args: %{article_id: article.id})
+    end
+
+    Repo.delete_all(Oban.Job)
+
+    assert {:ok, []} = SourceFetcher.run(source.id)
+    assert [] = all_enqueued(worker: ArticleScrapeWorker)
   end
 
   test "scrape worker stores Content from paragraphs and enqueues summary" do

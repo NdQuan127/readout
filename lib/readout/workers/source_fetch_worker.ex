@@ -9,7 +9,7 @@ defmodule Readout.Workers.SourceFetchWorker do
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"source_id" => source_id}}) do
     case SourceFetcher.run(source_id) do
-      {:ok, _count} ->
+      {:ok, _inserted_article_ids} ->
         :ok
 
       {:error, {:http_status, status}} when status in 400..499 ->

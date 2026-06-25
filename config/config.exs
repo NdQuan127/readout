@@ -26,7 +26,13 @@ config :readout,
 
 config :readout, Oban,
   repo: Readout.Repo,
-  queues: [source_fetch: 5, article_scrape: 5, article_summarize: 2]
+  queues: [source_fetch: 5, article_scrape: 5, article_summarize: 2],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 */3 * * *", Readout.Workers.SourceFetchCronWorker}
+     ]}
+  ]
 
 config :readout, Readout.Analysis,
   tags: ~w(ai business culture economy health politics science security technology world)
