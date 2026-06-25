@@ -1,7 +1,8 @@
 defmodule Readout.Workers.DigestRefreshWorker do
   use Oban.Worker,
     queue: :digest_refresh,
-    max_attempts: 3
+    max_attempts: 3,
+    unique: [period: 60, fields: [:worker, :args], keys: [:user_id]]
 
   alias Readout.Accounts.Scope
   alias Readout.Accounts.User

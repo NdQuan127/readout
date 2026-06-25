@@ -11,7 +11,7 @@ defmodule Readout.Ingestion.SourceFetcher do
     end
   end
 
-  def fetch(source) do
+  defp fetch(source) do
     with {:ok, document} <- HTTP.get(source.canonical_url),
          {:ok, entries} <- FeedParser.parse(document),
          {:ok, inserted_article_ids} <- insert_articles_and_enqueue_scrapes(source, entries) do
