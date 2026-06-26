@@ -62,6 +62,43 @@ defmodule ReadoutWeb.DigestLiveTest do
                1
     end
 
+    test "renders Markdown summary content as sanitized HTML", %{conn: conn, scope: scope} do
+      summary_fixture(scope,
+        title: "Markdown article",
+        summary_text: """
+        ## Why it matters
+
+        This is **important**.
+
+        - One
+        - Two
+
+        [Read more](https://example.com/article)
+
+        <script>alert("xss")</script><a href="https://example.com" onclick="steal()">safe link</a>
+        """
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+
+      view
+      |> element("button", "Tạo digest hôm nay")
+      |> render_click()
+
+      html = render(view)
+
+      assert html =~ "<h2>Why it matters</h2>"
+      assert html =~ "<strong>important</strong>"
+      assert html =~ "<li>One</li>"
+      assert html =~ ~s(href="https://example.com/article")
+      assert html =~ ">Read more</a>"
+      assert html =~ ">safe link</a>"
+      refute html =~ "**important**"
+      refute html =~ "<script"
+      refute html =~ "onclick"
+      refute html =~ "target="
+    end
+
     test "orders digest items by Article published time descending", %{conn: conn, scope: scope} do
       today = Date.utc_today()
 

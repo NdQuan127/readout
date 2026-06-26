@@ -57,7 +57,9 @@ defmodule ReadoutWeb.DigestLive do
             <p :if={item.summary.article.published_at} class="mt-1 text-xs text-base-content/60">
               Xuất bản {Calendar.strftime(item.summary.article.published_at, "%Y-%m-%d %H:%M UTC")}
             </p>
-            <p class="mt-3 text-sm leading-6 text-base-content/80">{item.summary.summary_text}</p>
+            <div class="mt-3 space-y-2 text-sm leading-6 text-base-content/80 [&_a]:link [&_a]:link-primary [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
+              {render_markdown(item.summary.summary_text)}
+            </div>
             <div :if={item.summary.tags != []} class="mt-3 flex flex-wrap gap-2">
               <span :for={tag <- item.summary.tags} class="badge badge-primary">{tag}</span>
             </div>

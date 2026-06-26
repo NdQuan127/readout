@@ -86,6 +86,7 @@ defmodule ReadoutWeb do
       import Phoenix.HTML
       # Core UI components
       import ReadoutWeb.CoreComponents
+      import ReadoutWeb.MarkdownHelpers
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

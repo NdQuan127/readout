@@ -49,6 +49,7 @@ defmodule Readout.MixProject do
       {:oban, "~> 2.20"},
       {:req, "~> 0.5"},
       {:floki, "~> 0.38"},
+      {:mdex, "~> 0.13"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.0"},
