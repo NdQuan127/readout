@@ -59,11 +59,11 @@ defmodule Readout.Analysis do
       :readout
       |> Application.fetch_env!(__MODULE__)
       |> Keyword.fetch!(:tags)
-      |> MapSet.new()
+      |> Map.new(fn tag -> {normalize_tag(tag), tag} end)
 
     tags
-    |> Enum.map(&normalize_tag/1)
-    |> Enum.filter(&MapSet.member?(allowed_tags, &1))
+    |> Enum.map(&Map.get(allowed_tags, normalize_tag(&1)))
+    |> Enum.reject(&is_nil/1)
     |> Enum.uniq()
     |> Enum.take(@max_tags)
   end

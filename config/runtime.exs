@@ -23,6 +23,20 @@ end
 config :readout, ReadoutWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+summary_tags =
+  System.get_env(
+    "READOUT_SUMMARY_TAGS",
+    "AI,Software,Infra,Security,Hardware,Science,Business,Finance,Policy,Culture,Math"
+  )
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.trim/1)
+  |> Enum.reject(&(&1 == ""))
+
+config :readout, Readout.Analysis, tags: summary_tags
+
+config :readout, Readout.Analysis.GeminiClient,
+  output_language: System.get_env("READOUT_SUMMARY_OUTPUT_LANGUAGE", "Vietnamese")
+
 if gemini_api_key = System.get_env("GEMINI_API_KEY") do
   config :readout, Readout.Analysis.GeminiClient, api_key: gemini_api_key
 end

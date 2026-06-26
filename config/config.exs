@@ -36,11 +36,12 @@ config :readout, Oban,
   ]
 
 config :readout, Readout.Analysis,
-  tags: ~w(ai business culture economy health politics science security technology world)
+  tags: ~w(AI Software Infra Security Hardware Science Business Finance Policy Culture Math)
 
 config :readout, Readout.Analysis.GeminiClient,
   endpoint: "https://generativelanguage.googleapis.com/v1beta",
-  model: "gemini-3.1-flash-lite"
+  model: "gemini-3.1-flash-lite",
+  output_language: "Vietnamese"
 
 config :swoosh, :api_client, false
 
