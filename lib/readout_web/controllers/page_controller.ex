@@ -5,7 +5,7 @@ defmodule ReadoutWeb.PageController do
 
   def home(%{assigns: %{current_scope: %Scope{user: user}}} = conn, _params)
       when not is_nil(user) do
-    redirect(conn, to: ~p"/demo")
+    redirect(conn, to: ~p"/digest")
   end
 
   def home(conn, _params) do

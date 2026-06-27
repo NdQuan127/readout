@@ -7,11 +7,11 @@ defmodule ReadoutWeb.PageControllerTest do
   end
 
   @tag :authenticated
-  test "GET / redirects logged-in users to demo", %{conn: conn} do
+  test "GET / redirects logged-in users to digest", %{conn: conn} do
     %{conn: conn} = register_and_log_in_user(%{conn: conn})
 
     conn = get(conn, ~p"/")
 
-    assert redirected_to(conn) == ~p"/demo"
+    assert redirected_to(conn) == ~p"/digest"
   end
 end

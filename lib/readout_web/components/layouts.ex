@@ -45,7 +45,7 @@ defmodule ReadoutWeb.Layouts do
       <div class="flex-none">
         <ul class="flex items-center gap-2">
           <li>
-            <a href={~p"/demo"} class="m3-btn m3-btn-text m3-state m3-ripple">Demo</a>
+            <a href={~p"/digest"} class="m3-btn m3-btn-text m3-state m3-ripple">Digest</a>
           </li>
           <li>
             <.theme_toggle />

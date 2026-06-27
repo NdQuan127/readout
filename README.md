@@ -1,6 +1,6 @@
 # Readout
 
-Readout is a Phoenix LiveView prototype for turning followed sources into concise AI summaries and focused tags.
+Readout is a Phoenix LiveView app for turning followed sources into concise AI summaries, focused tags, and a daily digest.
 
 ## Run Locally
 
@@ -17,4 +17,4 @@ mix setup
 mix phx.server
 ```
 
-Visit [`localhost:4000`](http://localhost:4000), or open [`localhost:4000/demo`](http://localhost:4000/demo) to try the current vertical slice.
+Visit [`localhost:4000`](http://localhost:4000), then open [`localhost:4000/digest`](http://localhost:4000/digest) to use the signed-in digest.
