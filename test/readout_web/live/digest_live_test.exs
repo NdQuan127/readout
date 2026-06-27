@@ -166,6 +166,32 @@ defmodule ReadoutWeb.DigestLiveTest do
       assert has_element?(view, "#digest-item-#{from_b.id}")
     end
 
+    test "regenerating resets the source filter so the list is not silently narrowed", %{
+      conn: conn,
+      scope: scope
+    } do
+      source_a = source_fixture(name: "Source A")
+      source_b = source_fixture(name: "Source B")
+
+      [from_a, from_b] =
+        generate_with(scope, [
+          [title: "Alpha story", source: source_a],
+          [title: "Beta story", source: source_b]
+        ])
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+
+      view |> element("#source-filter") |> render_change(%{"source" => from_a.article.source_id})
+      refute has_element?(view, "#digest-item-#{from_b.id}")
+
+      view |> element("#generate-digest") |> render_click()
+
+      # the filter is back to "all": both items show again, and the dropdown reflects it
+      assert has_element?(view, "#digest-item-#{from_a.id}")
+      assert has_element?(view, "#digest-item-#{from_b.id}")
+      assert has_element?(view, ~s(#source-filter option[value="all"][selected]))
+    end
+
     test "orders digest items by Article published time descending", %{conn: conn, scope: scope} do
       today = Date.utc_today()
 

@@ -30,7 +30,7 @@ defmodule ReadoutWeb.DigestLive do
   def handle_event("generate", _params, socket) do
     {:ok, _digest} = Curation.generate_digest(socket.assigns.current_scope, Date.utc_today())
 
-    {:noreply, assign_digest(socket)}
+    {:noreply, socket |> assign(:filter, "all") |> assign_digest()}
   end
 
   @impl true
