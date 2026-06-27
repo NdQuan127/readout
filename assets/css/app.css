@@ -471,6 +471,51 @@
   color: var(--m3-on-surface-variant);
 }
 
+/* ── Digest master-detail ──
+   Mobile: list fills the column; detail is a slide-over driven by `.detail-open`
+   (bound in markup to "an article is selected"). Both panes stay in the DOM so
+   the list keeps its scroll position when the detail closes — no scroll hook.
+   Desktop (md+): static two-column grid, both panes always visible. */
+.digest-detail {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--m3-surface);
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1);
+}
+.digest-detail.detail-open {
+  transform: translateX(0);
+}
+
+@media (min-width: 768px) {
+  .digest {
+    display: grid;
+    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .digest-detail {
+    position: static;
+    z-index: auto;
+    padding: 0;
+    overflow: visible;
+    background: transparent;
+    transform: none;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .digest-detail {
+    transition: none;
+  }
+}
+
 /* Honour reduced-motion: kill ripple + transitions in the M3 layer. */
 @media (prefers-reduced-motion: reduce) {
   .m3-ripple-ink {

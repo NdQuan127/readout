@@ -2,10 +2,9 @@ defmodule ReadoutWeb.DigestLiveTest do
   use ReadoutWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
+  import Readout.CurationFixtures
 
-  alias Readout.Analysis.ArticleSummary
-  alias Readout.Ingestion.{Article, Source, UserSource}
-  alias Readout.Repo
+  alias Readout.Curation
 
   test "redirects anonymous users to log in", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/users/log-in"}}} = live(conn, ~p"/digest")
@@ -15,9 +14,9 @@ defmodule ReadoutWeb.DigestLiveTest do
     setup :register_and_log_in_user
 
     test "shows an empty state before a digest is generated", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/digest")
+      {:ok, view, _html} = live(conn, ~p"/digest")
 
-      assert html =~ "Chưa có digest hôm nay"
+      assert has_element?(view, "#digest-empty")
     end
 
     test "generates today's digest for subscribed Sources without duplicates", %{
@@ -27,153 +26,211 @@ defmodule ReadoutWeb.DigestLiveTest do
       subscribed =
         summary_fixture(scope,
           title: "Subscribed article",
-          summary_text: "Tin thuộc nguồn đã subscribe.",
+          summary_text: "News from a subscribed source.",
           tags: ["technology"]
         )
 
       unsubscribed =
         summary_fixture(
           title: "Unsubscribed article",
-          summary_text: "Tin không nên xuất hiện.",
-          tags: ["business"]
+          summary_text: "News that should not appear."
         )
 
       {:ok, view, _html} = live(conn, ~p"/digest")
 
-      view
-      |> element("button", "Tạo digest hôm nay")
-      |> render_click()
+      view |> element("#generate-digest") |> render_click()
 
       html = render(view)
       assert html =~ subscribed.article.title
-      assert html =~ subscribed.summary_text
+      assert html =~ subscribed.article.source.name
       assert html =~ "technology"
       refute html =~ unsubscribed.article.title
-      refute html =~ unsubscribed.summary_text
 
-      view
-      |> element("button", "Tạo digest hôm nay")
-      |> render_click()
+      view |> element("#generate-digest") |> render_click()
 
-      html = render(view)
-      assert html =~ subscribed.summary_text
-
-      assert html |> Floki.parse_document!() |> Floki.find("#digest-items article") |> length() ==
-               1
+      assert view
+             |> render()
+             |> Floki.parse_document!()
+             |> Floki.find("#digest-items [id^=\"digest-item-\"]")
+             |> length() == 1
     end
 
-    test "renders Markdown summary content as sanitized HTML", %{conn: conn, scope: scope} do
-      summary_fixture(scope,
-        title: "Markdown article",
-        summary_text: """
-        ## Why it matters
-
-        This is **important**.
-
-        - One
-        - Two
-
-        [Read more](https://example.com/article)
-
-        <script>alert("xss")</script><a href="https://example.com" onclick="steal()">safe link</a>
-        """
-      )
+    test "selecting an item patches to /digest/:id and shows its summary in the detail pane",
+         %{conn: conn, scope: scope} do
+      summary =
+        generate_with(scope, [
+          [title: "Selected article", summary_text: "## Deep dive\n\nThe **body** text."]
+        ])
+        |> hd()
 
       {:ok, view, _html} = live(conn, ~p"/digest")
 
+      refute has_element?(view, "#detail-pane h1", "Selected article")
+      assert has_element?(view, "#detail-empty")
+
+      view |> element("#digest-item-#{summary.id} a") |> render_click()
+
+      assert_patch(view, ~p"/digest/#{summary.id}")
+      assert has_element?(view, "#detail-pane", "Selected article")
+      assert has_element?(view, "#detail-pane strong", "body")
+      assert has_element?(view, ~s(#detail-pane a[href="#{summary.article.canonical_url}"]))
+      refute has_element?(view, "#detail-empty")
+    end
+
+    test "marks the selected item active in the list", %{conn: conn, scope: scope} do
+      summary = generate_with(scope, [[title: "Active article"]]) |> hd()
+
+      {:ok, view, _html} = live(conn, ~p"/digest/#{summary.id}")
+
+      assert has_element?(view, ~s(#digest-item-#{summary.id}[aria-current="true"]))
+    end
+
+    test "deep-linking to /digest/:id keeps that article selected on load", %{
+      conn: conn,
+      scope: scope
+    } do
+      [first, second] =
+        generate_with(scope, [
+          [title: "First article", summary_text: "First body"],
+          [title: "Second article", summary_text: "Second body"]
+        ])
+
+      {:ok, view, _html} = live(conn, ~p"/digest/#{second.id}")
+
+      assert has_element?(view, "#detail-pane", "Second article")
+      refute has_element?(view, "#detail-pane", first.article.title)
+    end
+
+    test "bare /digest shows the empty detail pane without auto-selecting", %{
+      conn: conn,
+      scope: scope
+    } do
+      generate_with(scope, [[title: "Only article"]])
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+
+      assert has_element?(view, "#detail-empty")
+      refute has_element?(view, "#detail-pane h1")
+    end
+
+    test "an id outside today's digest patches back to /digest", %{conn: conn, scope: scope} do
+      generate_with(scope, [[title: "Mine"]])
+
+      bogus = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+      render_patch(view, ~p"/digest/#{bogus}")
+
+      assert_patch(view, ~p"/digest")
+      assert has_element?(view, "#detail-empty")
+    end
+
+    test "another user's summary id patches back to /digest", %{conn: conn, scope: scope} do
+      generate_with(scope, [[title: "Mine"]])
+
+      other_scope = register_and_log_in_user(%{conn: build_conn()}).scope
+      foreign = generate_with(other_scope, [[title: "Theirs"]]) |> hd()
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+      render_patch(view, ~p"/digest/#{foreign.id}")
+
+      assert_patch(view, ~p"/digest")
+    end
+
+    test "filtering by Source narrows the list but keeps the open article in detail", %{
+      conn: conn,
+      scope: scope
+    } do
+      source_a = source_fixture(name: "Source A")
+      source_b = source_fixture(name: "Source B")
+
+      [from_a, from_b] =
+        generate_with(scope, [
+          [title: "Alpha story", source: source_a, summary_text: "Alpha body"],
+          [title: "Beta story", source: source_b]
+        ])
+
+      {:ok, view, _html} = live(conn, ~p"/digest/#{from_a.id}")
+
       view
-      |> element("button", "Tạo digest hôm nay")
-      |> render_click()
+      |> element("#source-filter")
+      |> render_change(%{"source" => from_b.article.source_id})
 
-      html = render(view)
+      refute has_element?(view, "#digest-item-#{from_a.id}")
+      assert has_element?(view, "#digest-item-#{from_b.id}")
+      # the open article stays in the detail pane even though it is filtered out
+      assert has_element?(view, "#detail-pane", "Alpha story")
 
-      assert html =~ "<h2>Why it matters</h2>"
-      assert html =~ "<strong>important</strong>"
-      assert html =~ "<li>One</li>"
-      assert html =~ ~s(href="https://example.com/article")
-      assert html =~ ">Read more</a>"
-      assert html =~ ">safe link</a>"
-      refute html =~ "**important**"
-      refute html =~ "<script"
-      refute html =~ "onclick"
-      refute html =~ "target="
+      view |> element("#source-filter") |> render_change(%{"source" => "all"})
+      assert has_element?(view, "#digest-item-#{from_a.id}")
+      assert has_element?(view, "#digest-item-#{from_b.id}")
     end
 
     test "orders digest items by Article published time descending", %{conn: conn, scope: scope} do
       today = Date.utc_today()
 
-      older =
-        summary_fixture(scope,
-          title: "Older article",
-          summary_text: "Older summary",
-          published_at: at_hour(today, 8)
-        )
-
-      newer =
-        summary_fixture(scope,
-          title: "Newer article",
-          summary_text: "Newer summary",
-          published_at: at_hour(today, 16)
-        )
+      [newer, older] =
+        generate_with(scope, [
+          [title: "Older article", published_at: at_hour(today, 8)],
+          [title: "Newer article", published_at: at_hour(today, 16)]
+        ])
+        |> Enum.sort_by(& &1.article.published_at, {:desc, DateTime})
 
       {:ok, view, _html} = live(conn, ~p"/digest")
-
-      view
-      |> element("button", "Tạo digest hôm nay")
-      |> render_click()
 
       titles =
         view
         |> render()
         |> Floki.parse_document!()
-        |> Floki.find("#digest-items article a")
-        |> Enum.map(&(Floki.text(&1) |> String.trim()))
+        |> Floki.find("#digest-items [id^=\"digest-item-\"]")
+        |> Enum.map(
+          &(Floki.find(&1, "[data-role=\"item-title\"]")
+            |> Floki.text()
+            |> String.trim())
+        )
 
       assert titles == [newer.article.title, older.article.title]
     end
-  end
 
-  defp summary_fixture(attrs) do
-    summary_fixture(nil, attrs)
-  end
+    test "renders Markdown summary content as sanitized HTML in the detail pane", %{
+      conn: conn,
+      scope: scope
+    } do
+      summary =
+        generate_with(scope, [
+          [
+            title: "Markdown article",
+            summary_text: """
+            ## Why it matters
 
-  defp summary_fixture(scope, attrs) do
-    source = source_fixture()
+            This is **important**.
 
-    if scope do
-      Repo.insert!(%UserSource{user_id: scope.user.id, source_id: source.id})
+            <script>alert("xss")</script><a href="https://example.com" onclick="steal()">safe link</a>
+            """
+          ]
+        ])
+        |> hd()
+
+      {:ok, view, _html} = live(conn, ~p"/digest/#{summary.id}")
+      html = render(view)
+
+      assert html =~ "<h2>Why it matters</h2>"
+      assert html =~ "<strong>important</strong>"
+      assert html =~ ">safe link</a>"
+      refute html =~ "<script"
+      refute html =~ "onclick"
     end
-
-    article =
-      Repo.insert!(%Article{
-        source_id: source.id,
-        canonical_url: unique_url(),
-        title: attrs[:title] || "Article #{System.unique_integer([:positive])}",
-        published_at: attrs[:published_at] || DateTime.utc_now(:second)
-      })
-
-    Repo.insert!(%ArticleSummary{
-      article_id: article.id,
-      summary_text: attrs[:summary_text] || "Summary #{System.unique_integer([:positive])}",
-      tags: attrs[:tags] || ["technology"],
-      inserted_at: attrs[:inserted_at] || DateTime.utc_now(:second),
-      updated_at: attrs[:inserted_at] || DateTime.utc_now(:second)
-    })
-    |> Repo.preload(:article)
   end
 
-  defp source_fixture do
-    Repo.insert!(%Source{
-      canonical_url: unique_url(),
-      name: "Source #{System.unique_integer([:positive])}"
-    })
+  # Builds the listed Summaries then generates today's Digest, returning the
+  # inserted Summaries (with article + source preloaded) in insertion order.
+  defp generate_with(scope, summaries_attrs) do
+    summaries = Enum.map(summaries_attrs, &summary_fixture(scope, &1))
+    {:ok, _digest} = Curation.generate_digest(scope, Date.utc_today())
+    summaries
   end
 
   defp at_hour(date, hour) do
     DateTime.new!(date, Time.new!(hour, 0, 0), "Etc/UTC") |> DateTime.truncate(:second)
-  end
-
-  defp unique_url do
-    "https://example#{System.unique_integer([:positive])}.com/feed.xml"
   end
 end

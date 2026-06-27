@@ -79,8 +79,9 @@ defmodule Readout.Curation do
       from(item in DigestItem,
         join: summary in assoc(item, :summary),
         join: article in assoc(summary, :article),
+        join: source in assoc(article, :source),
         order_by: [desc: article.published_at, desc: summary.inserted_at],
-        preload: [summary: {summary, article: article}]
+        preload: [summary: {summary, article: {article, source: source}}]
       )
 
     from(digest in Digest,

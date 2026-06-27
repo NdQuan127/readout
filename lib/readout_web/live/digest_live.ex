@@ -5,65 +5,193 @@ defmodule ReadoutWeb.DigestLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign_digest(socket)}
+    {:ok,
+     socket
+     |> assign(:filter, "all")
+     |> assign(:selected, nil)
+     |> assign_digest()}
+  end
+
+  @impl true
+  def handle_params(params, _uri, socket) do
+    case params["id"] do
+      nil ->
+        {:noreply, assign(socket, :selected, nil)}
+
+      id ->
+        case Enum.find(items(socket.assigns.digest), &(&1.summary.id == id)) do
+          nil -> {:noreply, push_patch(socket, to: ~p"/digest")}
+          item -> {:noreply, assign(socket, :selected, item.summary)}
+        end
+    end
   end
 
   @impl true
   def handle_event("generate", _params, socket) do
-    scope = socket.assigns.current_scope
-    today = Date.utc_today()
-
-    {:ok, _digest} = Curation.generate_digest(scope, today)
+    {:ok, _digest} = Curation.generate_digest(socket.assigns.current_scope, Date.utc_today())
 
     {:noreply, assign_digest(socket)}
   end
 
   @impl true
+  def handle_event("filter", %{"source" => source}, socket) do
+    {:noreply, assign(socket, :filter, source)}
+  end
+
+  @impl true
   def render(assigns) do
+    items = items(assigns.digest)
+
+    assigns =
+      assigns
+      |> assign(:items, items)
+      |> assign(:sources, list_sources(items))
+
     ~H"""
-    <Layouts.app flash={@flash}>
-      <section class="mx-auto max-w-3xl">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p class="text-sm font-medium text-m3-on-surface-variant">{@today}</p>
-            <h1 class="text-2xl font-semibold">Digest hôm nay</h1>
-            <p class="mt-1 text-sm text-m3-on-surface-variant">{@current_scope.user.email}</p>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
+      <section
+        class="digest"
+        data-detail-open={to_string(@selected != nil)}
+        aria-label="Today's digest"
+      >
+        <div class="digest-list-pane flex flex-col gap-4">
+          <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p class="text-sm font-medium text-m3-on-surface-variant">
+                {Calendar.strftime(@today, "%b %-d, %Y")}
+              </p>
+              <h1 class="text-2xl font-semibold">Today's digest</h1>
+            </div>
+
+            <button
+              :if={@items != []}
+              id="generate-digest"
+              type="button"
+              phx-click="generate"
+              class="m3-btn m3-btn-tonal m3-state m3-ripple self-start"
+            >
+              Regenerate
+            </button>
+          </header>
+
+          <form :if={@items != []} class="max-w-xs">
+            <label class="m3-label" for="source-filter">Filter by source</label>
+            <select id="source-filter" name="source" phx-change="filter" class="m3-select">
+              <option value="all" selected={@filter == "all"}>All sources</option>
+              <option
+                :for={source <- @sources}
+                value={source.id}
+                selected={@filter == source.id}
+              >
+                {source.name}
+              </option>
+            </select>
+          </form>
+
+          <div
+            :if={@items == []}
+            id="digest-empty"
+            class="m3-card border border-m3-outline-variant p-8 text-center"
+          >
+            <h2 class="text-lg font-semibold">No digest yet</h2>
+            <p class="mt-2 text-sm text-m3-on-surface-variant">
+              Generate today's digest to gather the finished summaries from the sources you follow.
+            </p>
+            <button
+              id="generate-digest"
+              type="button"
+              phx-click="generate"
+              class="m3-btn m3-btn-filled m3-state m3-ripple mt-6"
+            >
+              Generate digest
+            </button>
           </div>
 
-          <button type="button" phx-click="generate" class="m3-btn m3-btn-filled m3-state m3-ripple">
-            Tạo digest hôm nay
-          </button>
+          <ul :if={@items != []} id="digest-items" class="flex flex-col gap-3" role="list">
+            <li
+              :for={item <- visible_items(@items, @filter)}
+              id={"digest-item-#{item.summary.id}"}
+              aria-current={to_string(selected?(@selected, item.summary))}
+            >
+              <.link
+                patch={~p"/digest/#{item.summary.id}"}
+                class={[
+                  "m3-card m3-state m3-ripple block border p-4",
+                  if(selected?(@selected, item.summary),
+                    do: "border-m3-primary bg-m3-secondary-container",
+                    else: "border-m3-outline-variant"
+                  )
+                ]}
+              >
+                <p class="text-xs font-medium text-m3-on-surface-variant">
+                  {item.summary.article.source.name}
+                  <span :if={item.summary.article.published_at}>
+                    · {Calendar.strftime(item.summary.article.published_at, "%b %-d, %H:%M")}
+                  </span>
+                </p>
+                <p data-role="item-title" class="mt-1 font-semibold leading-snug">
+                  {item.summary.article.title}
+                </p>
+                <div :if={item.summary.tags != []} class="mt-2 flex flex-wrap gap-1.5">
+                  <span :for={tag <- item.summary.tags} class="m3-chip">{tag}</span>
+                </div>
+              </.link>
+            </li>
+          </ul>
         </div>
 
         <div
-          :if={empty_digest?(@digest)}
-          class="mt-10 m3-card border border-m3-outline-variant p-8 text-center"
+          id="detail-pane"
+          class={["digest-detail", @selected && "detail-open"]}
+          aria-live="polite"
         >
-          <h2 class="text-lg font-semibold">Chưa có digest hôm nay</h2>
-          <p class="mt-2 text-sm text-m3-on-surface-variant">
-            Bấm “Tạo digest hôm nay” để gom các Summary đã hoàn tất từ Source bạn subscribe.
-          </p>
-        </div>
-
-        <div :if={!empty_digest?(@digest)} id="digest-items" class="mt-8 space-y-5">
-          <article
-            :for={item <- @digest.items}
-            id={"digest-item-#{item.id}"}
-            class="m3-card border border-m3-outline-variant p-5"
+          <.link
+            :if={@selected}
+            patch={~p"/digest"}
+            class="m3-btn m3-btn-text m3-state m3-ripple mb-4 self-start md:hidden"
           >
-            <a href={item.summary.article.canonical_url} class="text-lg font-semibold hover:underline">
-              {item.summary.article.title}
-            </a>
-            <p :if={item.summary.article.published_at} class="mt-1 text-xs text-m3-on-surface-variant">
-              Xuất bản {Calendar.strftime(item.summary.article.published_at, "%Y-%m-%d %H:%M UTC")}
+            ← Back to list
+          </.link>
+
+          <article :if={@selected} class="m3-card border border-m3-outline-variant p-6">
+            <p class="text-xs font-medium text-m3-on-surface-variant">
+              {@selected.article.source.name}
+              <span :if={@selected.article.published_at}>
+                · {Calendar.strftime(@selected.article.published_at, "%b %-d, %H:%M")}
+              </span>
             </p>
-            <div class="mt-3 space-y-2 text-sm leading-6 text-m3-on-surface-variant [&_a]:text-m3-primary [&_a]:underline [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
-              {render_markdown(item.summary.summary_text)}
+            <h1 class="mt-1 text-xl font-semibold leading-tight">{@selected.article.title}</h1>
+            <div :if={@selected.tags != []} class="mt-3 flex flex-wrap gap-1.5">
+              <span :for={tag <- @selected.tags} class="m3-chip">{tag}</span>
             </div>
-            <div :if={item.summary.tags != []} class="mt-3 flex flex-wrap gap-2">
-              <span :for={tag <- item.summary.tags} class="m3-chip">{tag}</span>
+            <div class="reading mt-5 space-y-3 text-[15px] leading-7 [&_a]:text-m3-primary [&_a]:underline [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
+              {render_markdown(@selected.summary_text)}
             </div>
+            <a
+              href={@selected.article.canonical_url}
+              target="_blank"
+              rel="noopener"
+              class="m3-btn m3-btn-outlined m3-state m3-ripple mt-6"
+            >
+              Read the original
+            </a>
           </article>
+
+          <div
+            :if={!@selected}
+            id="detail-empty"
+            class="m3-card grid place-items-center border border-dashed border-m3-outline-variant p-10 text-center"
+          >
+            <div>
+              <span class="msym text-4xl text-m3-on-surface-variant" aria-hidden="true">
+                article
+              </span>
+              <h2 class="mt-3 text-lg font-semibold">Select an article</h2>
+              <p class="mt-1 text-sm text-m3-on-surface-variant">
+                Pick a story from the list to read its summary here.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
     </Layouts.app>
@@ -76,7 +204,21 @@ defmodule ReadoutWeb.DigestLive do
     |> assign(:digest, Curation.get_today_digest(socket.assigns.current_scope))
   end
 
-  defp empty_digest?(nil), do: true
-  defp empty_digest?(%{items: []}), do: true
-  defp empty_digest?(_digest), do: false
+  defp items(nil), do: []
+  defp items(%{items: items}), do: items
+
+  defp visible_items(items, "all"), do: items
+
+  defp visible_items(items, source_id),
+    do: Enum.filter(items, &(&1.summary.article.source_id == source_id))
+
+  defp list_sources(items) do
+    items
+    |> Enum.map(& &1.summary.article.source)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.name)
+  end
+
+  defp selected?(nil, _summary), do: false
+  defp selected?(selected, summary), do: selected.id == summary.id
 end

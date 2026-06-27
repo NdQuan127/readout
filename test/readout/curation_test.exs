@@ -1,11 +1,11 @@
 defmodule Readout.CurationTest do
   use Readout.DataCase, async: true
 
+  import Readout.CurationFixtures
+
   alias Readout.AccountsFixtures
   alias Readout.Curation
   alias Readout.Curation.{Digest, DigestItem}
-  alias Readout.Analysis.ArticleSummary
-  alias Readout.Ingestion.{Article, Source, UserSource}
 
   describe "generate_digest/2" do
     test "selects today's summaries from subscribed Sources only" do
@@ -66,48 +66,9 @@ defmodule Readout.CurationTest do
     end
   end
 
-  defp summary_fixture(attrs) do
-    summary_fixture(nil, attrs)
-  end
-
-  defp summary_fixture(scope, attrs) do
-    source = source_fixture()
-
-    if scope do
-      Repo.insert!(%UserSource{user_id: scope.user.id, source_id: source.id})
-    end
-
-    article =
-      Repo.insert!(%Article{
-        source_id: source.id,
-        canonical_url: unique_url(),
-        title: attrs[:title] || "Article #{System.unique_integer([:positive])}",
-        published_at: attrs[:published_at] || at_noon(Date.utc_today())
-      })
-
-    Repo.insert!(%ArticleSummary{
-      article_id: article.id,
-      summary_text: attrs[:summary_text] || "Summary #{System.unique_integer([:positive])}",
-      tags: attrs[:tags] || ["technology"],
-      inserted_at: attrs[:inserted_at] || DateTime.utc_now(:second),
-      updated_at: attrs[:inserted_at] || DateTime.utc_now(:second)
-    })
-  end
-
-  defp source_fixture do
-    Repo.insert!(%Source{
-      canonical_url: unique_url(),
-      name: "Source #{System.unique_integer([:positive])}"
-    })
-  end
-
   defp at_noon(date), do: at_hour(date, 12)
 
   defp at_hour(date, hour) do
     DateTime.new!(date, Time.new!(hour, 0, 0), "Etc/UTC") |> DateTime.truncate(:second)
-  end
-
-  defp unique_url do
-    "https://example#{System.unique_integer([:positive])}.com/feed.xml"
   end
 end
