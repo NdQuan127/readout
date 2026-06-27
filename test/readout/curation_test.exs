@@ -64,6 +64,50 @@ defmodule Readout.CurationTest do
       assert digest.date == today
       assert digest.items == []
     end
+
+    test "orders digest items by Summary-ready time descending" do
+      scope = AccountsFixtures.user_scope_fixture()
+      today = Date.utc_today()
+      yesterday = Date.add(today, -1)
+
+      older_ready_newer_article =
+        summary_fixture(scope,
+          title: "Published today, summarized this morning",
+          published_at: at_hour(today, 10),
+          inserted_at: at_hour(today, 8)
+        )
+
+      newer_ready_older_article =
+        summary_fixture(scope,
+          title: "Published yesterday, summarized this afternoon",
+          published_at: at_hour(yesterday, 18),
+          inserted_at: at_hour(today, 15)
+        )
+
+      assert {:ok, digest} = Curation.generate_digest(scope, today)
+
+      assert Enum.map(digest.items, & &1.summary_id) == [
+               newer_ready_older_article.id,
+               older_ready_newer_article.id
+             ]
+    end
+
+    test "includes all eligible summaries for today without a hard item limit" do
+      scope = AccountsFixtures.user_scope_fixture()
+      today = Date.utc_today()
+
+      summary_ids =
+        for index <- 1..25 do
+          summary_fixture(scope,
+            title: "Eligible article #{index}",
+            inserted_at: DateTime.add(at_hour(today, 8), index, :minute)
+          ).id
+        end
+
+      assert {:ok, digest} = Curation.generate_digest(scope, today)
+
+      assert Enum.sort(Enum.map(digest.items, & &1.summary_id)) == Enum.sort(summary_ids)
+    end
   end
 
   defp at_noon(date), do: at_hour(date, 12)

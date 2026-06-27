@@ -80,7 +80,7 @@ defmodule Readout.Curation do
         join: summary in assoc(item, :summary),
         join: article in assoc(summary, :article),
         join: source in assoc(article, :source),
-        order_by: [desc: article.published_at, desc: summary.inserted_at],
+        order_by: [desc: summary.inserted_at, desc: article.published_at],
         preload: [summary: {summary, article: {article, source: source}}]
       )
 

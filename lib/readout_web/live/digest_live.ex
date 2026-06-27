@@ -130,12 +130,18 @@ defmodule ReadoutWeb.DigestLive do
               >
                 <p class="text-xs font-medium text-m3-on-surface-variant">
                   {item.summary.article.source.name}
-                  <span :if={item.summary.article.published_at}>
-                    · {Calendar.strftime(item.summary.article.published_at, "%b %-d, %H:%M")}
+                  <span>
+                    · Ready {Calendar.strftime(item.summary.inserted_at, "%b %-d, %H:%M")}
                   </span>
                 </p>
                 <p data-role="item-title" class="mt-1 font-semibold leading-snug">
                   {item.summary.article.title}
+                </p>
+                <p
+                  data-role="item-preview"
+                  class="mt-2 line-clamp-2 text-sm leading-6 text-m3-on-surface-variant"
+                >
+                  {summary_preview(item.summary.summary_text)}
                 </p>
                 <div :if={item.summary.tags != []} class="mt-2 flex flex-wrap gap-1.5">
                   <span :for={tag <- item.summary.tags} class="m3-chip">{tag}</span>
@@ -178,7 +184,7 @@ defmodule ReadoutWeb.DigestLive do
               rel="noopener"
               class="m3-btn m3-btn-outlined m3-state m3-ripple mt-6"
             >
-              Read the original
+              Read original
             </a>
           </article>
 
@@ -225,6 +231,16 @@ defmodule ReadoutWeb.DigestLive do
     |> Enum.map(& &1.summary.article.source)
     |> Enum.uniq_by(& &1.id)
     |> Enum.sort_by(& &1.name)
+  end
+
+  defp summary_preview(summary_text) do
+    summary_text
+    |> String.replace(~r/<script\b[^>]*>.*?<\/script>/is, " ")
+    |> String.replace(~r/<[^>]*>/, " ")
+    |> String.replace(~r/[#*_>`\[\]()!-]/, " ")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+    |> String.slice(0, 180)
   end
 
   defp selected?(nil, _summary), do: false

@@ -99,7 +99,13 @@ defmodule ReadoutWeb.DigestLiveTest do
       assert_patch(view, ~p"/digest/#{summary.id}")
       assert has_element?(view, "#detail-pane", "Selected article")
       assert has_element?(view, "#detail-pane strong", "body")
-      assert has_element?(view, ~s(#detail-pane a[href="#{summary.article.canonical_url}"]))
+
+      assert has_element?(
+               view,
+               ~s(#detail-pane a[href="#{summary.article.canonical_url}"]),
+               "Read original"
+             )
+
       refute has_element?(view, "#detail-empty")
     end
 
@@ -163,6 +169,20 @@ defmodule ReadoutWeb.DigestLiveTest do
       assert_patch(view, ~p"/digest")
     end
 
+    test "a same-user summary outside today's digest patches back to /digest", %{
+      conn: conn,
+      scope: scope
+    } do
+      generate_with(scope, [[title: "Digest article"]])
+      non_digest = summary_fixture(scope, title: "Not in today's digest yet")
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+      render_patch(view, ~p"/digest/#{non_digest.id}")
+
+      assert_patch(view, ~p"/digest")
+      refute has_element?(view, "#detail-pane", "Not in today's digest yet")
+    end
+
     test "filtering by Source narrows the list but keeps the open article in detail", %{
       conn: conn,
       scope: scope
@@ -218,30 +238,82 @@ defmodule ReadoutWeb.DigestLiveTest do
       assert has_element?(view, ~s(#source-filter option[value="all"][selected]))
     end
 
-    test "orders digest items by Article published time descending", %{conn: conn, scope: scope} do
+    test "orders digest items by Summary-ready time descending", %{conn: conn, scope: scope} do
       today = Date.utc_today()
+      yesterday = Date.add(today, -1)
 
-      [newer, older] =
+      [older_ready_newer_article, newer_ready_older_article] =
         generate_with(scope, [
-          [title: "Older article", published_at: at_hour(today, 8)],
-          [title: "Newer article", published_at: at_hour(today, 16)]
+          [
+            title: "Published today, summarized this morning",
+            published_at: at_hour(today, 10),
+            inserted_at: at_hour(today, 8)
+          ],
+          [
+            title: "Published yesterday, summarized this afternoon",
+            published_at: at_hour(yesterday, 18),
+            inserted_at: at_hour(today, 15)
+          ]
         ])
-        |> Enum.sort_by(& &1.article.published_at, {:desc, DateTime})
 
       {:ok, view, _html} = live(conn, ~p"/digest")
 
       titles =
         view
         |> render()
-        |> Floki.parse_document!()
-        |> Floki.find("#digest-items [id^=\"digest-item-\"]")
-        |> Enum.map(
-          &(Floki.find(&1, "[data-role=\"item-title\"]")
-            |> Floki.text()
-            |> String.trim())
-        )
+        |> digest_item_titles()
 
-      assert titles == [newer.article.title, older.article.title]
+      assert titles == [
+               newer_ready_older_article.article.title,
+               older_ready_newer_article.article.title
+             ]
+    end
+
+    test "list items show Source, Summary-ready time, title, preview, and Tags", %{
+      conn: conn,
+      scope: scope
+    } do
+      today = Date.utc_today()
+      source = source_fixture(name: "Metadata Source")
+      ready_at = at_hour(today, 14)
+
+      summary =
+        generate_with(scope, [
+          [
+            source: source,
+            title: "Metadata Article",
+            inserted_at: ready_at,
+            summary_text:
+              "## Lead\n\nThis concise summary preview helps a user decide whether to open the article.",
+            tags: ["technology", "business"]
+          ]
+        ])
+        |> hd()
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+
+      assert has_element?(view, "#digest-item-#{summary.id}", "Metadata Source")
+
+      assert has_element?(
+               view,
+               "#digest-item-#{summary.id}",
+               Calendar.strftime(ready_at, "%b %-d, %H:%M")
+             )
+
+      assert has_element?(
+               view,
+               "#digest-item-#{summary.id} [data-role='item-title']",
+               "Metadata Article"
+             )
+
+      assert has_element?(
+               view,
+               "#digest-item-#{summary.id} [data-role='item-preview']",
+               "Lead This concise summary preview"
+             )
+
+      assert has_element?(view, "#digest-item-#{summary.id}", "technology")
+      assert has_element?(view, "#digest-item-#{summary.id}", "business")
     end
 
     test "renders Markdown summary content as sanitized HTML in the detail pane", %{
@@ -280,6 +352,17 @@ defmodule ReadoutWeb.DigestLiveTest do
     summaries = Enum.map(summaries_attrs, &summary_fixture(scope, &1))
     {:ok, _digest} = Curation.generate_digest(scope, Date.utc_today())
     summaries
+  end
+
+  defp digest_item_titles(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("#digest-items [id^=\"digest-item-\"]")
+    |> Enum.map(
+      &(Floki.find(&1, "[data-role=\"item-title\"]")
+        |> Floki.text()
+        |> String.trim())
+    )
   end
 
   defp at_hour(date, hour) do
