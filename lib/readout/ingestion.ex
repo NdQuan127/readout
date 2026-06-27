@@ -3,6 +3,7 @@ defmodule Readout.Ingestion do
 
   alias Ecto.Multi
   alias Readout.Accounts.Scope
+  alias Readout.Analysis.ArticleSummary
   alias Readout.HTTP
   alias Readout.Ingestion.{Article, ArticleContent, FeedParser, Source, UserSource}
   alias Readout.Repo
@@ -57,6 +58,29 @@ defmodule Readout.Ingestion do
       order_by: [asc: source.name]
     )
     |> Repo.all()
+  end
+
+  def list_source_management_entries(%Scope{user: %{id: user_id}}) do
+    from(source in Source,
+      join: user_source in UserSource,
+      on: user_source.source_id == source.id,
+      left_join: article in Article,
+      on: article.source_id == source.id,
+      left_join: summary in ArticleSummary,
+      on: summary.article_id == article.id,
+      where: user_source.user_id == ^user_id,
+      group_by: source.id,
+      order_by: [asc: source.name],
+      select: %{
+        id: source.id,
+        name: source.name,
+        canonical_url: source.canonical_url,
+        article_count: count(article.id, :distinct),
+        summary_count: count(summary.id, :distinct)
+      }
+    )
+    |> Repo.all()
+    |> Enum.map(&Map.put(&1, :status, source_status(&1)))
   end
 
   def get_article(%Scope{user: %{id: user_id}}, article_id) do
@@ -130,6 +154,15 @@ defmodule Readout.Ingestion do
     |> preload([:content, :summary])
     |> Repo.all()
   end
+
+  defp source_status(%{article_count: 0}), do: "Fetching articles"
+
+  defp source_status(%{article_count: article_count, summary_count: summary_count})
+       when article_count == summary_count,
+       do: "Summaries ready"
+
+  defp source_status(%{article_count: article_count}) when article_count > 0, do: "Articles found"
+  defp source_status(_entry), do: "Needs attention"
 
   defp validate_feed(url) do
     with {:ok, document} <- HTTP.get(url),

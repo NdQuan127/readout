@@ -5,7 +5,7 @@ defmodule ReadoutWeb.SourcesLiveTest do
   import Phoenix.LiveViewTest
   import Readout.CurationFixtures
 
-  alias Readout.Ingestion.UserSource
+  alias Readout.Ingestion.{Article, UserSource}
   alias Readout.Repo
   alias Readout.Workers.SourceFetchWorker
 
@@ -52,6 +52,83 @@ defmodule ReadoutWeb.SourcesLiveTest do
       assert html =~ "Source added. Fetching articles now."
       assert has_element?(view, "#source-list", "example.com")
       assert has_element?(view, "#source-list", "https://example.com/feed.xml")
+      assert has_element?(view, "#source-list", "Fetching articles")
+      assert_enqueued(worker: SourceFetchWorker)
+    end
+
+    test "lists existing Sources with status and counts", %{conn: conn, scope: scope, user: user} do
+      summarized_source =
+        source_fixture(
+          name: "Industry News",
+          canonical_url: "https://industry.example/feed.xml"
+        )
+
+      article_source =
+        source_fixture(
+          name: "Fresh Wire",
+          canonical_url: "https://fresh.example/feed.xml"
+        )
+
+      summary_fixture(scope, source: summarized_source)
+      Repo.insert!(%UserSource{user_id: user.id, source_id: article_source.id})
+      insert_article(article_source, title: "Fresh Article")
+
+      {:ok, view, _html} = live(conn, ~p"/sources")
+
+      assert has_element?(view, "#source-list", "Industry News")
+      assert has_element?(view, "#source-list", "https://industry.example/feed.xml")
+      assert has_element?(view, "#source-list", "Summaries ready")
+      assert has_element?(view, "#source-list", "1 Article")
+      assert has_element?(view, "#source-list", "1 Summary")
+
+      assert has_element?(view, "#source-list", "Fresh Wire")
+      assert has_element?(view, "#source-list", "https://fresh.example/feed.xml")
+      assert has_element?(view, "#source-list", "Articles found")
+      assert has_element?(view, "#source-list", "0 Summaries")
+
+      refute has_element?(view, "#source-list", "Recent Articles")
+    end
+
+    test "existing Sources show a toolbar Add source action that opens an inline panel", %{
+      conn: conn,
+      user: user
+    } do
+      source = source_fixture(name: "Existing Source")
+      Repo.insert!(%UserSource{user_id: user.id, source_id: source.id})
+
+      {:ok, view, _html} = live(conn, ~p"/sources")
+
+      assert has_element?(view, "#show-add-source", "Add source")
+      refute has_element?(view, "#add-source-panel")
+      refute has_element?(view, ~s([role="dialog"]))
+
+      render_click(element(view, "#show-add-source"))
+
+      assert has_element?(view, "#add-source-panel")
+      assert has_element?(view, "#source-form")
+      refute has_element?(view, ~s([role="dialog"]))
+    end
+
+    test "adds another valid Source from the inline panel and updates the list", %{
+      conn: conn,
+      user: user
+    } do
+      existing_source = source_fixture(name: "Existing Source")
+      Repo.insert!(%UserSource{user_id: user.id, source_id: existing_source.id})
+      stub_valid_feed()
+      {:ok, view, _html} = live(conn, ~p"/sources")
+
+      render_click(element(view, "#show-add-source"))
+
+      html =
+        view
+        |> form("#source-form", source: %{url: "https://example.com/new-feed.xml"})
+        |> render_submit()
+
+      assert html =~ "Source added. Fetching articles now."
+      assert has_element?(view, "#source-list", "Existing Source")
+      assert has_element?(view, "#source-list", "example.com")
+      assert has_element?(view, "#source-list", "https://example.com/new-feed.xml")
       assert_enqueued(worker: SourceFetchWorker)
     end
 
@@ -99,15 +176,25 @@ defmodule ReadoutWeb.SourcesLiveTest do
       assert has_element?(view, "#source-form-error")
     end
 
-    test "only lists Sources subscribed by the current User", %{conn: conn} do
+    test "only lists Sources and counts subscribed by the current User", %{
+      conn: conn,
+      user: user
+    } do
+      own_source = source_fixture(name: "My source")
       foreign_source = source_fixture(name: "Other user's source")
       other = Readout.AccountsFixtures.user_fixture()
 
+      Repo.insert!(%UserSource{user_id: user.id, source_id: own_source.id})
       Repo.insert!(%UserSource{user_id: other.id, source_id: foreign_source.id})
+      insert_article(foreign_source, title: "Foreign article")
 
       {:ok, view, _html} = live(conn, ~p"/sources")
 
+      assert has_element?(view, "#source-list", "My source")
+      assert has_element?(view, "#source-list", "0 Articles")
       refute has_element?(view, "#source-list", "Other user's source")
+      refute has_element?(view, "#source-list", "Foreign article")
+      refute has_element?(view, "#source-list", "1 Article")
     end
   end
 
@@ -115,5 +202,16 @@ defmodule ReadoutWeb.SourcesLiveTest do
     Req.Test.stub(Readout.HTTP, fn conn ->
       Plug.Conn.send_resp(conn, 200, "<rss><channel></channel></rss>")
     end)
+  end
+
+  defp insert_article(source, attrs) do
+    Repo.insert!(%Article{
+      source_id: source.id,
+      canonical_url:
+        attrs[:canonical_url] ||
+          "https://example#{System.unique_integer([:positive])}.com/article",
+      title: attrs[:title] || "Article #{System.unique_integer([:positive])}",
+      published_at: attrs[:published_at] || DateTime.utc_now(:second)
+    })
   end
 end

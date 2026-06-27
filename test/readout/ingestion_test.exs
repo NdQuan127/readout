@@ -4,7 +4,8 @@ defmodule Readout.IngestionTest do
 
   alias Readout.{Accounts, Ingestion}
   alias Readout.Accounts.Scope
-  alias Readout.Ingestion.{Article, ArticleContent, Source, SourceFetcher}
+  alias Readout.Analysis.ArticleSummary
+  alias Readout.Ingestion.{Article, ArticleContent, Source, SourceFetcher, UserSource}
   alias Readout.Workers.{ArticleScrapeWorker, ArticleSummarizeWorker, SourceFetchWorker}
 
   test "subscription rejects an unreachable feed before storing it" do
@@ -183,6 +184,64 @@ defmodule Readout.IngestionTest do
 
     assert [source] == Ingestion.list_sources(first_scope)
     assert [] == Ingestion.list_sources(second_scope)
+  end
+
+  test "source management entries include scoped counts and status" do
+    {:ok, first_user} = Accounts.register_user(%{email: "first@example.com"})
+    {:ok, second_user} = Accounts.register_user(%{email: "second@example.com"})
+    first_scope = Scope.for_user(first_user)
+    second_scope = Scope.for_user(second_user)
+
+    source = Repo.insert!(%Source{canonical_url: "https://example.com/feed.xml", name: "Example"})
+
+    other_source =
+      Repo.insert!(%Source{canonical_url: "https://other.com/feed.xml", name: "Other"})
+
+    Repo.insert!(%UserSource{user_id: first_user.id, source_id: source.id})
+    Repo.insert!(%UserSource{user_id: second_user.id, source_id: other_source.id})
+
+    summarized_article =
+      Repo.insert!(%Article{
+        source_id: source.id,
+        canonical_url: "https://example.com/summarized",
+        title: "Summarized"
+      })
+
+    Repo.insert!(%Article{
+      source_id: source.id,
+      canonical_url: "https://example.com/unsummarized",
+      title: "Unsummarized"
+    })
+
+    Repo.insert!(%Article{
+      source_id: other_source.id,
+      canonical_url: "https://other.com/article",
+      title: "Other article"
+    })
+
+    Repo.insert!(%ArticleSummary{
+      article_id: summarized_article.id,
+      summary_text: "Summary"
+    })
+
+    assert [entry] = Ingestion.list_source_management_entries(first_scope)
+
+    assert %{
+             id: source_id,
+             name: "Example",
+             canonical_url: "https://example.com/feed.xml",
+             article_count: 2,
+             summary_count: 1,
+             status: "Articles found"
+           } = entry
+
+    assert source_id == source.id
+
+    assert [other_entry] = Ingestion.list_source_management_entries(second_scope)
+    assert other_entry.name == "Other"
+    assert other_entry.article_count == 1
+    assert other_entry.summary_count == 0
+    assert other_entry.status == "Articles found"
   end
 
   defp stub_valid_feed do
