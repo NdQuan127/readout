@@ -48,7 +48,7 @@ defmodule ReadoutWeb.DigestLive do
       |> assign(:sources, list_sources(items))
 
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.product_shell flash={@flash} current_scope={@current_scope} active_product={:digest}>
       <section
         class="digest"
         data-detail-open={to_string(@selected != nil)}
@@ -194,7 +194,7 @@ defmodule ReadoutWeb.DigestLive do
           </div>
         </div>
       </section>
-    </Layouts.app>
+    </Layouts.product_shell>
     """
   end
 

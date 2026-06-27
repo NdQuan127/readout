@@ -43,9 +43,20 @@ defmodule ReadoutWeb.Layouts do
         </a>
       </div>
       <div class="flex-none">
-        <ul class="flex items-center gap-2">
-          <li>
-            <a href={~p"/digest"} class="m3-btn m3-btn-text m3-state m3-ripple">Digest</a>
+        <ul class="flex items-center gap-3 text-sm text-m3-on-surface-variant">
+          <li :if={@current_scope} class="hidden sm:block">
+            {@current_scope.user.email}
+          </li>
+          <li :if={@current_scope}>
+            <.link href={~p"/users/settings"} class="hover:text-m3-primary">Settings</.link>
+          </li>
+          <li :if={@current_scope}>
+            <.link href={~p"/users/log-out"} method="delete" class="hover:text-m3-primary">
+              Log out
+            </.link>
+          </li>
+          <li :if={!@current_scope}>
+            <.link href={~p"/users/log-in"} class="hover:text-m3-primary">Log in</.link>
           </li>
           <li>
             <.theme_toggle />
@@ -61,6 +72,127 @@ defmodule ReadoutWeb.Layouts do
     </main>
 
     <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc """
+  Renders the signed-in product shell used by per-User product surfaces.
+
+  Public and authentication pages should continue to use `app/1`; this shell is
+  intentionally reserved for authenticated product routes such as Digest.
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    required: true,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
+  attr :active_product, :atom,
+    required: true,
+    values: [:digest, :sources],
+    doc: "which product navigation item should be marked current"
+
+  slot :inner_block, required: true
+
+  def product_shell(assigns) do
+    ~H"""
+    <div id="product-shell" class="min-h-screen bg-m3-surface text-m3-on-surface md:flex">
+      <aside class="hidden w-64 shrink-0 border-r border-m3-outline-variant bg-m3-surface-container-low md:flex md:min-h-screen md:flex-col">
+        <div class="flex h-20 items-center px-6">
+          <a href={~p"/digest"} class="flex w-fit items-center gap-3">
+            <img src={~p"/images/logo.svg"} width="36" height="36" alt="" />
+            <span class="text-base font-semibold tracking-wide">Readout</span>
+          </a>
+        </div>
+
+        <nav aria-label="Product" class="flex-1 px-3 py-2">
+          <ul class="space-y-1">
+            <li>
+              <.product_nav_link href={~p"/digest"} active={@active_product == :digest}>
+                <:icon>article</:icon>
+                Digest
+              </.product_nav_link>
+            </li>
+            <li>
+              <.product_nav_link href="/sources" active={@active_product == :sources}>
+                <:icon>rss_feed</:icon>
+                Sources
+              </.product_nav_link>
+            </li>
+          </ul>
+        </nav>
+      </aside>
+
+      <div class="min-w-0 flex-1">
+        <header class="sticky top-0 z-30 border-b border-m3-outline-variant bg-m3-surface/95 backdrop-blur supports-[backdrop-filter]:bg-m3-surface/80">
+          <div class="flex min-h-16 flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+            <a href={~p"/digest"} class="flex items-center gap-2 md:hidden">
+              <img src={~p"/images/logo.svg"} width="32" height="32" alt="" />
+              <span class="text-sm font-semibold tracking-wide">Readout</span>
+            </a>
+
+            <nav aria-label="Product" class="order-3 w-full md:hidden">
+              <ul class="flex gap-2">
+                <li>
+                  <.product_nav_link href={~p"/digest"} active={@active_product == :digest} compact>
+                    <:icon>article</:icon>
+                    Digest
+                  </.product_nav_link>
+                </li>
+                <li>
+                  <.product_nav_link href="/sources" active={@active_product == :sources} compact>
+                    <:icon>rss_feed</:icon>
+                    Sources
+                  </.product_nav_link>
+                </li>
+              </ul>
+            </nav>
+
+            <div class="ml-auto flex items-center gap-3 text-sm text-m3-on-surface-variant">
+              <span class="hidden max-w-[18rem] truncate sm:inline">{@current_scope.user.email}</span>
+              <.link href={~p"/users/settings"} class="hover:text-m3-primary">Settings</.link>
+              <.link href={~p"/users/log-out"} method="delete" class="hover:text-m3-primary">
+                Log out
+              </.link>
+              <.theme_toggle />
+            </div>
+          </div>
+        </header>
+
+        <main class="px-4 py-6 sm:px-6 lg:px-8">
+          {render_slot(@inner_block)}
+        </main>
+      </div>
+    </div>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  attr :href, :string, required: true
+  attr :active, :boolean, required: true
+  attr :compact, :boolean, default: false
+  slot :icon, required: true
+  slot :inner_block, required: true
+
+  defp product_nav_link(assigns) do
+    ~H"""
+    <.link
+      href={@href}
+      aria-current={if @active, do: "page"}
+      class={[
+        "m3-state m3-ripple flex items-center gap-3 rounded-full px-4 text-sm font-medium transition-colors",
+        @compact && "h-10",
+        !@compact && "h-12",
+        if(@active,
+          do: "bg-m3-secondary-container text-m3-on-secondary-container",
+          else: "text-m3-on-surface-variant hover:text-m3-on-surface"
+        )
+      ]}
+    >
+      <span class="msym text-xl" aria-hidden="true">{render_slot(@icon)}</span>
+      <span>{render_slot(@inner_block)}</span>
+    </.link>
     """
   end
 
@@ -125,6 +257,7 @@ defmodule ReadoutWeb.Layouts do
         class="relative flex w-1/3 cursor-pointer justify-center p-2 text-m3-on-surface-variant"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
+        aria-label="Use system theme"
       >
         <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -133,6 +266,7 @@ defmodule ReadoutWeb.Layouts do
         class="relative flex w-1/3 cursor-pointer justify-center p-2 text-m3-on-surface-variant"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
+        aria-label="Use light theme"
       >
         <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -141,6 +275,7 @@ defmodule ReadoutWeb.Layouts do
         class="relative flex w-1/3 cursor-pointer justify-center p-2 text-m3-on-surface-variant"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
+        aria-label="Use dark theme"
       >
         <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
