@@ -1,7 +1,7 @@
 defmodule ReadoutWeb.DigestLive do
   use ReadoutWeb, :live_view
 
-  alias Readout.Curation
+  alias Readout.{Curation, Ingestion}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -93,18 +93,23 @@ defmodule ReadoutWeb.DigestLive do
             id="digest-empty"
             class="m3-card border border-m3-outline-variant p-8 text-center"
           >
-            <h2 class="text-lg font-semibold">No digest yet</h2>
-            <p class="mt-2 text-sm text-m3-on-surface-variant">
-              Generate today's digest to gather the finished summaries from the sources you follow.
+            <h2 class="text-lg font-semibold">
+              {if @has_sources, do: "No summaries ready yet", else: "No sources yet"}
+            </h2>
+            <p class="mx-auto mt-2 max-w-xl text-sm text-m3-on-surface-variant">
+              <%= if @has_sources do %>
+                Readout is still fetching and summarizing articles from your sources.
+              <% else %>
+                Add an RSS or Atom source. Readout will fetch articles, prepare summaries, and build your daily digest.
+              <% end %>
             </p>
-            <button
-              id="generate-digest"
-              type="button"
-              phx-click="generate"
+            <.link
+              id="digest-empty-sources-link"
+              navigate={~p"/sources"}
               class="m3-btn m3-btn-filled m3-state m3-ripple mt-6"
             >
-              Generate digest
-            </button>
+              {if @has_sources, do: "View sources", else: "Add source"}
+            </.link>
           </div>
 
           <ul :if={@items != []} id="digest-items" class="flex flex-col gap-3" role="list">
@@ -199,9 +204,12 @@ defmodule ReadoutWeb.DigestLive do
   end
 
   defp assign_digest(socket) do
+    scope = socket.assigns.current_scope
+
     socket
     |> assign(:today, Date.utc_today())
-    |> assign(:digest, Curation.get_today_digest(socket.assigns.current_scope))
+    |> assign(:digest, Curation.get_today_digest(scope))
+    |> assign(:has_sources, Ingestion.list_sources(scope) != [])
   end
 
   defp items(nil), do: []

@@ -5,6 +5,8 @@ defmodule ReadoutWeb.DigestLiveTest do
   import Readout.CurationFixtures
 
   alias Readout.Curation
+  alias Readout.Ingestion.UserSource
+  alias Readout.Repo
 
   test "redirects anonymous users to log in", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/users/log-in"}}} = live(conn, ~p"/digest")
@@ -13,13 +15,38 @@ defmodule ReadoutWeb.DigestLiveTest do
   describe "authenticated operator" do
     setup :register_and_log_in_user
 
-    test "shows an empty state before a digest is generated", %{conn: conn} do
+    test "shows the no-Sources empty state with a CTA to Sources", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/digest")
 
-      assert has_element?(view, "#digest-empty")
+      assert has_element?(view, "#digest-empty", "No sources yet")
+      assert has_element?(view, "#digest-empty", "RSS or Atom source")
+      assert has_element?(view, "#digest-empty", "build your daily digest")
+      assert has_element?(view, ~s(#digest-empty a[href="/sources"]), "Add source")
+      refute has_element?(view, "#digest-empty", "Generate digest")
+
+      assert {:error, {:live_redirect, %{to: "/sources"}}} =
+               view |> element("#digest-empty a", "Add source") |> render_click()
     end
 
-    test "generates today's digest for subscribed Sources without duplicates", %{
+    test "shows the Sources-but-no-Summary empty state with a CTA to Sources", %{
+      conn: conn,
+      user: user
+    } do
+      source = source_fixture(name: "Waiting Source")
+      Repo.insert!(%UserSource{user_id: user.id, source_id: source.id})
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+
+      assert has_element?(view, "#digest-empty", "No summaries ready yet")
+      assert has_element?(view, "#digest-empty", "fetching and summarizing articles")
+      assert has_element?(view, ~s(#digest-empty a[href="/sources"]), "View sources")
+      refute has_element?(view, "#digest-empty", "Generate digest")
+
+      assert {:error, {:live_redirect, %{to: "/sources"}}} =
+               view |> element("#digest-empty a", "View sources") |> render_click()
+    end
+
+    test "regenerates today's digest for subscribed Sources without duplicates", %{
       conn: conn,
       scope: scope
     } do
@@ -36,9 +63,8 @@ defmodule ReadoutWeb.DigestLiveTest do
           summary_text: "News that should not appear."
         )
 
+      {:ok, _digest} = Curation.generate_digest(scope, Date.utc_today())
       {:ok, view, _html} = live(conn, ~p"/digest")
-
-      view |> element("#generate-digest") |> render_click()
 
       html = render(view)
       assert html =~ subscribed.article.title
