@@ -6,6 +6,10 @@
 @source "../js";
 @source "../../lib/readout_web";
 
+/* Self-hosted fonts (Be Vietnam Pro, Literata, Material Symbols).
+   Vendored woff2 in priv/static/fonts — no Google Fonts <link> at runtime. */
+@import "./fonts.css";
+
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
 @plugin "../vendor/heroicons";
@@ -101,5 +105,446 @@
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Material 3 layer (bespoke, on Tailwind v4 — see ADR 0011).
+   Runs in parallel with daisyUI during this slice; nothing removed yet.
+   Token values seeded from priv/prototypes/digest-7.html (green seed).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── M3 design tokens: color roles, shape scale, state-layer opacities ── */
+:root {
+  /* color roles — light */
+  --m3-primary: #386a20;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #b7f397;
+  --m3-on-primary-container: #042100;
+  --m3-secondary: #55624c;
+  --m3-on-secondary: #ffffff;
+  --m3-secondary-container: #d9e7cb;
+  --m3-on-secondary-container: #131f0d;
+  --m3-surface: #f8faf0;
+  --m3-surface-dim: #d9dbcf;
+  --m3-surface-container-lowest: #ffffff;
+  --m3-surface-container-low: #f2f4ea;
+  --m3-surface-container: #eceee4;
+  --m3-surface-container-high: #e6e9df;
+  --m3-surface-container-highest: #e1e4d9;
+  --m3-on-surface: #1a1c16;
+  --m3-on-surface-variant: #44483d;
+  --m3-outline: #75796c;
+  --m3-outline-variant: #c5c8ba;
+  --m3-error: #ba1a1a;
+  --m3-on-error: #ffffff;
+  --m3-error-container: #ffdad6;
+  --m3-on-error-container: #410002;
+
+  /* shape scale (corner radii) */
+  --m3-shape-xs: 4px;
+  --m3-shape-sm: 8px;
+  --m3-shape-md: 12px;
+  --m3-shape-lg: 16px;
+  --m3-shape-xl: 28px;
+  --m3-shape-full: 9999px;
+
+  /* state-layer opacities */
+  --m3-state-hover: 0.08;
+  --m3-state-focus: 0.1;
+  --m3-state-pressed: 0.12;
+  --m3-state-dragged: 0.16;
+
+  color-scheme: light;
+}
+
+/* Dark tokens applied via explicit toggle (data-theme=dark) … */
+[data-theme="dark"] {
+  --m3-primary: #9cd67d;
+  --m3-on-primary: #0c3900;
+  --m3-primary-container: #1f5200;
+  --m3-on-primary-container: #b7f397;
+  --m3-secondary: #bccbb0;
+  --m3-on-secondary: #283417;
+  --m3-secondary-container: #3e4a36;
+  --m3-on-secondary-container: #d9e7cb;
+  --m3-surface: #11140d;
+  --m3-surface-dim: #11140d;
+  --m3-surface-container-lowest: #0c0f08;
+  --m3-surface-container-low: #1a1c16;
+  --m3-surface-container: #1e201a;
+  --m3-surface-container-high: #282b24;
+  --m3-surface-container-highest: #33362e;
+  --m3-on-surface: #e2e3d8;
+  --m3-on-surface-variant: #c5c8ba;
+  --m3-outline: #8f9285;
+  --m3-outline-variant: #44483d;
+  --m3-error: #ffb4ab;
+  --m3-on-error: #690005;
+  --m3-error-container: #93000a;
+  --m3-on-error-container: #ffdad6;
+
+  color-scheme: dark;
+}
+
+/* … and to system-dark users who have not pinned a theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --m3-primary: #9cd67d;
+    --m3-on-primary: #0c3900;
+    --m3-primary-container: #1f5200;
+    --m3-on-primary-container: #b7f397;
+    --m3-secondary: #bccbb0;
+    --m3-on-secondary: #283417;
+    --m3-secondary-container: #3e4a36;
+    --m3-on-secondary-container: #d9e7cb;
+    --m3-surface: #11140d;
+    --m3-surface-dim: #11140d;
+    --m3-surface-container-lowest: #0c0f08;
+    --m3-surface-container-low: #1a1c16;
+    --m3-surface-container: #1e201a;
+    --m3-surface-container-high: #282b24;
+    --m3-surface-container-highest: #33362e;
+    --m3-on-surface: #e2e3d8;
+    --m3-on-surface-variant: #c5c8ba;
+    --m3-outline: #8f9285;
+    --m3-outline-variant: #44483d;
+    --m3-error: #ffb4ab;
+    --m3-on-error: #690005;
+    --m3-error-container: #93000a;
+    --m3-on-error-container: #ffdad6;
+
+    color-scheme: dark;
+  }
+}
+
+/* Expose M3 roles + fonts to Tailwind utilities (namespaced m3-* so they do
+   not collide with daisyUI's own --color-* while both layers coexist). */
+@theme inline {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Literata", ui-serif, Georgia, serif;
+
+  --color-m3-primary: var(--m3-primary);
+  --color-m3-on-primary: var(--m3-on-primary);
+  --color-m3-primary-container: var(--m3-primary-container);
+  --color-m3-on-primary-container: var(--m3-on-primary-container);
+  --color-m3-secondary: var(--m3-secondary);
+  --color-m3-on-secondary: var(--m3-on-secondary);
+  --color-m3-secondary-container: var(--m3-secondary-container);
+  --color-m3-on-secondary-container: var(--m3-on-secondary-container);
+  --color-m3-surface: var(--m3-surface);
+  --color-m3-surface-dim: var(--m3-surface-dim);
+  --color-m3-surface-container-lowest: var(--m3-surface-container-lowest);
+  --color-m3-surface-container-low: var(--m3-surface-container-low);
+  --color-m3-surface-container: var(--m3-surface-container);
+  --color-m3-surface-container-high: var(--m3-surface-container-high);
+  --color-m3-surface-container-highest: var(--m3-surface-container-highest);
+  --color-m3-on-surface: var(--m3-on-surface);
+  --color-m3-on-surface-variant: var(--m3-on-surface-variant);
+  --color-m3-outline: var(--m3-outline);
+  --color-m3-outline-variant: var(--m3-outline-variant);
+  --color-m3-error: var(--m3-error);
+  --color-m3-on-error: var(--m3-on-error);
+  --color-m3-error-container: var(--m3-error-container);
+  --color-m3-on-error-container: var(--m3-on-error-container);
+}
+
+/* ── Material Symbols helper ── */
+.msym {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* ── M3 component primitives (only those auth + core_components need) ── */
+@layer components {
+  /* State layer: hover/pressed overlay, pure CSS. Host must be position:relative. */
+  .m3-state {
+    position: relative;
+    overflow: hidden;
+  }
+  .m3-state::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    border-radius: inherit;
+  }
+  .m3-state:hover::after {
+    opacity: var(--m3-state-hover);
+  }
+  .m3-state:active::after {
+    opacity: var(--m3-state-pressed);
+  }
+
+  /* Ripple host: clips the ink span spawned by the pointerdown listener. */
+  .m3-ripple {
+    position: relative;
+    overflow: hidden;
+  }
+  .m3-ripple-ink {
+    position: absolute;
+    border-radius: var(--m3-shape-full);
+    background: currentColor;
+    opacity: 0.16;
+    transform: scale(0);
+    animation: m3-ripple 0.5s cubic-bezier(0.2, 0, 0, 1);
+    pointer-events: none;
+  }
+  @keyframes m3-ripple {
+    to {
+      transform: scale(2.4);
+      opacity: 0;
+    }
+  }
+
+  /* Buttons */
+  .m3-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 24px;
+    border-radius: var(--m3-shape-full);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: box-shadow 0.2s ease, background-color 0.2s ease;
+  }
+  .m3-btn:disabled,
+  .m3-btn[disabled] {
+    cursor: not-allowed;
+    opacity: 0.38;
+  }
+  .m3-btn-filled {
+    background: var(--m3-primary);
+    color: var(--m3-on-primary);
+  }
+  .m3-btn-tonal {
+    background: var(--m3-secondary-container);
+    color: var(--m3-on-secondary-container);
+  }
+  .m3-btn-text {
+    background: transparent;
+    color: var(--m3-primary);
+    padding: 0 12px;
+  }
+  .m3-btn-outlined {
+    background: transparent;
+    color: var(--m3-primary);
+    border-color: var(--m3-outline);
+  }
+  .m3-btn-elevated {
+    background: var(--m3-surface-container-low);
+    color: var(--m3-primary);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  }
+
+  /* Icon button */
+  .m3-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--m3-shape-full);
+    color: var(--m3-on-surface-variant);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+  }
+
+  /* Card / surface */
+  .m3-card {
+    background: var(--m3-surface-container-low);
+    color: var(--m3-on-surface);
+    border-radius: var(--m3-shape-lg);
+  }
+
+  /* Text field (filled M3 input) */
+  .m3-field {
+    width: 100%;
+    height: 48px;
+    padding: 0 16px;
+    border: 1px solid var(--m3-outline);
+    border-radius: var(--m3-shape-xs);
+    background: var(--m3-surface-container-lowest);
+    color: var(--m3-on-surface);
+    font-size: 15px;
+    line-height: 1.3;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .m3-field::placeholder {
+    color: var(--m3-on-surface-variant);
+    opacity: 0.7;
+  }
+  .m3-field:focus {
+    outline: none;
+    border-color: var(--m3-primary);
+    box-shadow: inset 0 0 0 1px var(--m3-primary);
+  }
+  .m3-field-error,
+  .m3-field[aria-invalid="true"] {
+    border-color: var(--m3-error);
+  }
+  .m3-field-error:focus,
+  .m3-field[aria-invalid="true"]:focus {
+    border-color: var(--m3-error);
+    box-shadow: inset 0 0 0 1px var(--m3-error);
+  }
+  textarea.m3-field {
+    height: auto;
+    min-height: 96px;
+    padding: 12px 16px;
+    line-height: 1.5;
+  }
+
+  /* Outlined select */
+  .m3-select {
+    width: 100%;
+    height: 48px;
+    padding: 0 40px 0 16px;
+    border: 1px solid var(--m3-outline);
+    border-radius: var(--m3-shape-xs);
+    background-color: var(--m3-surface-container-lowest);
+    color: var(--m3-on-surface);
+    font-size: 15px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--m3-on-surface-variant) 50%),
+      linear-gradient(135deg, var(--m3-on-surface-variant) 50%, transparent 50%);
+    background-position: calc(100% - 20px) center, calc(100% - 15px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    cursor: pointer;
+  }
+  .m3-select:focus {
+    outline: none;
+    border-color: var(--m3-primary);
+    box-shadow: inset 0 0 0 1px var(--m3-primary);
+  }
+
+  /* Field label + helper/error text */
+  .m3-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--m3-on-surface-variant);
+  }
+  .m3-field-msg {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--m3-error);
+  }
+
+  /* M3 switch: a styled native checkbox — no JS. */
+  .m3-switch {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    flex: none;
+    width: 52px;
+    height: 32px;
+    border-radius: var(--m3-shape-full);
+    background: var(--m3-surface-container-highest);
+    border: 2px solid var(--m3-outline);
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+  .m3-switch::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    border-radius: var(--m3-shape-full);
+    background: var(--m3-outline);
+    transform: translateY(-50%);
+    transition: left 0.22s cubic-bezier(0.2, 0, 0, 1), width 0.22s ease,
+      height 0.22s ease, background-color 0.22s ease;
+  }
+  .m3-switch:checked {
+    background: var(--m3-primary);
+    border-color: var(--m3-primary);
+  }
+  .m3-switch:checked::after {
+    left: 26px;
+    width: 24px;
+    height: 24px;
+    background: var(--m3-on-primary);
+  }
+
+  /* Alert / flash surface */
+  .m3-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--m3-shape-md);
+    background: var(--m3-surface-container-high);
+    color: var(--m3-on-surface);
+    border: 1px solid var(--m3-outline-variant);
+  }
+  .m3-alert-info {
+    background: var(--m3-secondary-container);
+    color: var(--m3-on-secondary-container);
+    border-color: transparent;
+  }
+  .m3-alert-error {
+    background: var(--m3-error-container);
+    color: var(--m3-on-error-container);
+    border-color: transparent;
+  }
+}
+
+/* Shared focus-visible ring for M3 interactive primitives (keyboard nav). */
+.m3-btn:focus-visible,
+.m3-icon-btn:focus-visible,
+.m3-switch:focus-visible,
+.m3-select:focus-visible,
+.m3-card:focus-visible {
+  outline: 2px solid var(--m3-primary);
+  outline-offset: 2px;
+}
+
+/* Reading surface (serif body for long-form Summary content). */
+.reading {
+  font-family: var(--font-serif);
+  color: var(--m3-on-surface-variant);
+}
+
+/* Honour reduced-motion: kill ripple + transitions in the M3 layer. */
+@media (prefers-reduced-motion: reduce) {
+  .m3-ripple-ink {
+    display: none;
+  }
+  .m3-state::after,
+  .m3-btn,
+  .m3-switch,
+  .m3-switch::after,
+  .m3-field,
+  .m3-select {
+    transition: none;
+  }
+}
 
 /* This file is for your main application CSS */

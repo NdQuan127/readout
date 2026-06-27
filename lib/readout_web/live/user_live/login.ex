@@ -21,7 +21,7 @@ defmodule ReadoutWeb.UserLive.Login do
           </.header>
         </div>
 
-        <div :if={local_mail_adapter?()} class="alert alert-info">
+        <div :if={local_mail_adapter?()} class="m3-alert m3-alert-info">
           <.icon name="hero-information-circle" class="size-6 shrink-0" />
           <div>
             <p>You are running the local mail adapter.</p>
@@ -48,12 +48,16 @@ defmodule ReadoutWeb.UserLive.Login do
             required
             phx-mounted={JS.focus()}
           />
-          <.button class="btn btn-primary w-full">
+          <.button class="w-full">
             Log in with email <span aria-hidden="true">→</span>
           </.button>
         </.form>
 
-        <div class="divider">or</div>
+        <div class="my-6 flex items-center gap-4 text-sm text-m3-on-surface-variant">
+          <div class="h-px flex-1 bg-m3-outline-variant"></div>
+          or
+          <div class="h-px flex-1 bg-m3-outline-variant"></div>
+        </div>
 
         <.form
           :let={f}
@@ -79,10 +83,10 @@ defmodule ReadoutWeb.UserLive.Login do
             autocomplete="current-password"
             spellcheck="false"
           />
-          <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
+          <.button class="w-full" name={@form[:remember_me].name} value="true">
             Log in and stay logged in <span aria-hidden="true">→</span>
           </.button>
-          <.button class="btn btn-primary btn-soft w-full mt-2">
+          <.button variant="tonal" class="w-full mt-2">
             Log in only this time
           </.button>
         </.form>

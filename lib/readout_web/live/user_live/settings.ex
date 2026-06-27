@@ -28,7 +28,7 @@ defmodule ReadoutWeb.UserLive.Settings do
         <.button variant="primary" phx-disable-with="Changing...">Change Email</.button>
       </.form>
 
-      <div class="divider" />
+      <div class="my-6 h-px bg-m3-outline-variant" />
 
       <.form
         for={@password_form}

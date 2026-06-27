@@ -40,6 +40,27 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
+// ── M3 ripple ───────────────────────────────────────────────────────────
+// One delegated pointerdown listener for the whole document. Any element with
+// the `.m3-ripple` class spawns an ink span that animates from the pointer.
+// Pure CSS can't read pointer coordinates, so this is the M3 layer's only JS.
+// Skipped entirely when the user prefers reduced motion.
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
+document.addEventListener("pointerdown", e => {
+  if (reduceMotion.matches) return
+  const host = e.target.closest(".m3-ripple")
+  if (!host) return
+  const rect = host.getBoundingClientRect()
+  const size = Math.max(rect.width, rect.height)
+  const ink = document.createElement("span")
+  ink.className = "m3-ripple-ink"
+  ink.style.width = ink.style.height = `${size}px`
+  ink.style.left = `${e.clientX - rect.left - size / 2}px`
+  ink.style.top = `${e.clientY - rect.top - size / 2}px`
+  host.appendChild(ink)
+  setTimeout(() => ink.remove(), 520)
+})
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

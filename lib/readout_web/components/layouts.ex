@@ -35,17 +35,17 @@ defmodule ReadoutWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
+    <header class="flex items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
       <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
+        <a href="/" class="flex w-fit items-center gap-2">
           <img src={~p"/images/logo.svg"} width="32" height="32" alt="" />
-          <span class="text-sm font-semibold tracking-wide">Readout</span>
+          <span class="text-sm font-semibold tracking-wide text-m3-on-surface">Readout</span>
         </a>
       </div>
       <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
+        <ul class="flex items-center gap-2">
           <li>
-            <a href={~p"/demo"} class="btn btn-ghost">Demo</a>
+            <a href={~p"/demo"} class="m3-btn m3-btn-text m3-state m3-ripple">Demo</a>
           </li>
           <li>
             <.theme_toggle />
@@ -76,7 +76,11 @@ defmodule ReadoutWeb.Layouts do
 
   def flash_group(assigns) do
     ~H"""
-    <div id={@id} aria-live="polite">
+    <div
+      id={@id}
+      aria-live="polite"
+      class="pointer-events-none fixed top-4 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 sm:w-96"
+    >
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
@@ -114,11 +118,11 @@ defmodule ReadoutWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
+    <div class="relative flex flex-row items-center rounded-full border border-m3-outline-variant bg-m3-surface-container">
+      <div class="absolute left-0 h-full w-1/3 rounded-full bg-m3-secondary-container [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="relative flex w-1/3 cursor-pointer justify-center p-2 text-m3-on-surface-variant"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
       >
@@ -126,7 +130,7 @@ defmodule ReadoutWeb.Layouts do
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="relative flex w-1/3 cursor-pointer justify-center p-2 text-m3-on-surface-variant"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
       >
@@ -134,7 +138,7 @@ defmodule ReadoutWeb.Layouts do
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="relative flex w-1/3 cursor-pointer justify-center p-2 text-m3-on-surface-variant"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
       >

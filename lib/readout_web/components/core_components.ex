@@ -9,11 +9,14 @@ defmodule ReadoutWeb.CoreComponents do
   them in any way you want, based on your application growth and needs.
 
   The foundation for styling is Tailwind CSS, a utility-first CSS framework,
-  augmented with daisyUI, a Tailwind CSS plugin that provides UI components
-  and themes. Here are useful references:
+  augmented with a bespoke Material 3 layer (design tokens + an
+  `@layer components` block of M3 primitives in `assets/css/app.css`, see
+  ADR 0011). The function components below render through those M3 primitives
+  (`.m3-btn`, `.m3-field`, `.m3-alert`, `.m3-switch`, …) while keeping their
+  public signatures stable. Here are useful references:
 
-    * [daisyUI](https://daisyui.com/docs/intro/) - a good place to get
-      started and see the available components.
+    * [Material 3](https://m3.material.io) - the design language these
+      primitives approximate (green tonal seed, light + dark).
 
     * [Tailwind CSS](https://tailwindcss.com) - the foundational framework
       we build on. You will use it for layout, sizing, flexbox, grid, and
@@ -63,22 +66,21 @@ defmodule ReadoutWeb.CoreComponents do
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
       role="alert"
-      class="toast toast-top toast-end z-50"
+      class="pointer-events-auto w-full cursor-pointer text-wrap"
       {@rest}
     >
       <div class={[
-        "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap",
-        @kind == :info && "alert-info",
-        @kind == :error && "alert-error"
+        "m3-alert",
+        @kind == :info && "m3-alert-info",
+        @kind == :error && "m3-alert-error"
       ]}>
         <.icon :if={@kind == :info} name="hero-information-circle" class="size-5 shrink-0" />
         <.icon :if={@kind == :error} name="hero-exclamation-circle" class="size-5 shrink-0" />
-        <div>
+        <div class="min-w-0 flex-1">
           <p :if={@title} class="font-semibold">{@title}</p>
           <p>{msg}</p>
         </div>
-        <div class="flex-1" />
-        <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
+        <button type="button" class="group shrink-0 cursor-pointer" aria-label={gettext("close")}>
           <.icon name="hero-x-mark" class="size-5 opacity-40 group-hover:opacity-70" />
         </button>
       </div>
@@ -89,34 +91,46 @@ defmodule ReadoutWeb.CoreComponents do
   @doc """
   Renders a button with navigation support.
 
+  The `variant` selects the M3 button shape; `class` adds extra utilities
+  (e.g. `w-full`) on top of the M3 base — it does not replace it.
+
   ## Examples
 
       <.button>Send!</.button>
-      <.button phx-click="go" variant="primary">Send!</.button>
-      <.button navigate={~p"/"}>Home</.button>
+      <.button phx-click="go" variant="tonal">Send!</.button>
+      <.button navigate={~p"/"} variant="text">Home</.button>
   """
   attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
-  attr :class, :any
-  attr :variant, :string, values: ~w(primary)
+  attr :class, :any, default: nil, doc: "extra utility classes appended to the M3 base"
+
+  attr :variant, :string,
+    default: "filled",
+    values: ~w(filled tonal text outlined elevated primary),
+    doc: "M3 button style; `primary` is a back-compat alias for `filled`"
+
   slot :inner_block, required: true
 
   def button(%{rest: rest} = assigns) do
-    variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
+    variants = %{
+      "filled" => "m3-btn-filled",
+      "primary" => "m3-btn-filled",
+      "tonal" => "m3-btn-tonal",
+      "text" => "m3-btn-text",
+      "outlined" => "m3-btn-outlined",
+      "elevated" => "m3-btn-elevated"
+    }
 
-    assigns =
-      assign_new(assigns, :class, fn ->
-        ["btn", Map.fetch!(variants, assigns[:variant])]
-      end)
+    assigns = assign(assigns, :variant_class, Map.fetch!(variants, assigns.variant))
 
     if rest[:href] || rest[:navigate] || rest[:patch] do
       ~H"""
-      <.link class={@class} {@rest}>
+      <.link class={["m3-btn m3-state m3-ripple", @variant_class, @class]} {@rest}>
         {render_slot(@inner_block)}
       </.link>
       """
     else
       ~H"""
-      <button class={@class} {@rest}>
+      <button class={["m3-btn m3-state m3-ripple", @variant_class, @class]} {@rest}>
         {render_slot(@inner_block)}
       </button>
       """
@@ -212,26 +226,19 @@ defmodule ReadoutWeb.CoreComponents do
       end)
 
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
+    <div class="mb-3">
+      <input type="hidden" name={@name} value="false" disabled={@rest[:disabled]} form={@rest[:form]} />
+      <label for={@id} class="flex items-center gap-3 cursor-pointer text-sm text-m3-on-surface">
         <input
-          type="hidden"
+          type="checkbox"
+          id={@id}
           name={@name}
-          value="false"
-          disabled={@rest[:disabled]}
-          form={@rest[:form]}
+          value="true"
+          checked={@checked}
+          class={@class || "m3-switch"}
+          {@rest}
         />
-        <span class="label">
-          <input
-            type="checkbox"
-            id={@id}
-            name={@name}
-            value="true"
-            checked={@checked}
-            class={@class || "checkbox checkbox-sm"}
-            {@rest}
-          />{@label}
-        </span>
+        <span :if={@label}>{@label}</span>
       </label>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
@@ -240,13 +247,13 @@ defmodule ReadoutWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+    <div class="mb-3">
+      <label for={@id} class="block">
+        <span :if={@label} class="m3-label">{@label}</span>
         <select
           id={@id}
           name={@name}
-          class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
+          class={[@class || "m3-select", @errors != [] && (@error_class || "m3-field-error")]}
           multiple={@multiple}
           {@rest}
         >
@@ -261,16 +268,13 @@ defmodule ReadoutWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+    <div class="mb-3">
+      <label for={@id} class="block">
+        <span :if={@label} class="m3-label">{@label}</span>
         <textarea
           id={@id}
           name={@name}
-          class={[
-            @class || "w-full textarea",
-            @errors != [] && (@error_class || "textarea-error")
-          ]}
+          class={[@class || "m3-field", @errors != [] && (@error_class || "m3-field-error")]}
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
       </label>
@@ -282,18 +286,16 @@ defmodule ReadoutWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+    <div class="mb-3">
+      <label for={@id} class="block">
+        <span :if={@label} class="m3-label">{@label}</span>
         <input
           type={@type}
           name={@name}
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-          class={[
-            @class || "w-full input",
-            @errors != [] && (@error_class || "input-error")
-          ]}
+          aria-invalid={@errors != [] && "true"}
+          class={[@class || "m3-field", @errors != [] && (@error_class || "m3-field-error")]}
           {@rest}
         />
       </label>
@@ -305,7 +307,7 @@ defmodule ReadoutWeb.CoreComponents do
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""
-    <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
+    <p class="m3-field-msg">
       <.icon name="hero-exclamation-circle" class="size-5" />
       {render_slot(@inner_block)}
     </p>
@@ -323,10 +325,10 @@ defmodule ReadoutWeb.CoreComponents do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8">
+        <h1 class="text-xl font-medium leading-8 text-m3-on-surface">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
+        <p :if={@subtitle != []} class="text-sm text-m3-on-surface-variant">
           {render_slot(@subtitle)}
         </p>
       </div>
@@ -367,25 +369,29 @@ defmodule ReadoutWeb.CoreComponents do
       end
 
     ~H"""
-    <table class="table table-zebra">
-      <thead>
+    <table class="w-full text-left text-sm text-m3-on-surface">
+      <thead class="text-m3-on-surface-variant border-b border-m3-outline-variant">
         <tr>
-          <th :for={col <- @col}>{col[:label]}</th>
-          <th :if={@action != []}>
+          <th :for={col <- @col} class="py-2 pr-4 font-medium">{col[:label]}</th>
+          <th :if={@action != []} class="py-2">
             <span class="sr-only">{gettext("Actions")}</span>
           </th>
         </tr>
       </thead>
       <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
-        <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
+        <tr
+          :for={row <- @rows}
+          id={@row_id && @row_id.(row)}
+          class="border-b border-m3-outline-variant/60"
+        >
           <td
             :for={col <- @col}
             phx-click={@row_click && @row_click.(row)}
-            class={@row_click && "hover:cursor-pointer"}
+            class={["py-3 pr-4", @row_click && "hover:cursor-pointer"]}
           >
             {render_slot(col, @row_item.(row))}
           </td>
-          <td :if={@action != []} class="w-0 font-semibold">
+          <td :if={@action != []} class="w-0 py-3 font-medium">
             <div class="flex gap-4">
               <%= for action <- @action do %>
                 {render_slot(action, @row_item.(row))}
@@ -414,12 +420,10 @@ defmodule ReadoutWeb.CoreComponents do
 
   def list(assigns) do
     ~H"""
-    <ul class="list">
-      <li :for={item <- @item} class="list-row">
-        <div class="list-col-grow">
-          <div class="font-bold">{item.title}</div>
-          <div>{render_slot(item)}</div>
-        </div>
+    <ul class="divide-y divide-m3-outline-variant/60">
+      <li :for={item <- @item} class="flex flex-col gap-0.5 py-3">
+        <div class="text-sm font-medium text-m3-on-surface-variant">{item.title}</div>
+        <div class="text-m3-on-surface">{render_slot(item)}</div>
       </li>
     </ul>
     """
