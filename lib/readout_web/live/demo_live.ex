@@ -89,7 +89,7 @@ defmodule ReadoutWeb.DemoLive do
       <div class="grid gap-8 lg:grid-cols-[18rem_1fr]">
         <section>
           <h1 class="text-2xl font-semibold">Readout</h1>
-          <p class="mt-1 text-sm text-base-content/70">{@current_scope.user.email}</p>
+          <p class="mt-1 text-sm text-m3-on-surface-variant">{@current_scope.user.email}</p>
 
           <form phx-submit="subscribe" class="mt-6 space-y-2">
             <label for="source-url" class="block text-sm font-medium">RSS or Atom URL</label>
@@ -98,11 +98,13 @@ defmodule ReadoutWeb.DemoLive do
               name="source[url]"
               type="url"
               value={@url}
-              class="input input-bordered w-full"
+              class="m3-field"
               placeholder="https://example.com/feed.xml"
             />
-            <p :if={@error} id="source-url-error" class="text-sm text-error">{@error}</p>
-            <button class="btn btn-primary w-full" type="submit">Subscribe</button>
+            <p :if={@error} id="source-url-error" class="text-sm text-m3-error">{@error}</p>
+            <button class="m3-btn m3-btn-filled m3-state m3-ripple w-full" type="submit">
+              Subscribe
+            </button>
           </form>
 
           <h2 class="mt-8 font-semibold">Sources</h2>
@@ -122,7 +124,7 @@ defmodule ReadoutWeb.DemoLive do
                   phx-click="summarize"
                   phx-value-id={article.id}
                   disabled={MapSet.member?(@pending_article_ids, article.id)}
-                  class="btn btn-sm btn-outline"
+                  class="m3-btn m3-btn-outlined m3-state m3-ripple"
                 >
                   <%= if MapSet.member?(@pending_article_ids, article.id) do %>
                     Đang xử lý
@@ -130,14 +132,14 @@ defmodule ReadoutWeb.DemoLive do
                     Tóm tắt
                   <% end %>
                 </button>
-                <span :if={article.content && !article.summary} class="badge badge-neutral">
+                <span :if={article.content && !article.summary} class="m3-chip m3-chip-neutral">
                   Đã cào {String.length(article.content.text)} ký tự
                 </span>
               </div>
               <div :if={article.summary} class="mt-3 space-y-2">
-                <p class="text-sm text-base-content/80">{article.summary.summary_text}</p>
+                <p class="text-sm text-m3-on-surface-variant">{article.summary.summary_text}</p>
                 <div :if={article.summary.tags != []} class="flex flex-wrap gap-2">
-                  <span :for={tag <- article.summary.tags} class="badge badge-primary">{tag}</span>
+                  <span :for={tag <- article.summary.tags} class="m3-chip">{tag}</span>
                 </div>
               </div>
             </article>

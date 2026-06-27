@@ -25,22 +25,22 @@ defmodule ReadoutWeb.DigestLive do
       <section class="mx-auto max-w-3xl">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p class="text-sm font-medium text-base-content/60">{@today}</p>
+            <p class="text-sm font-medium text-m3-on-surface-variant">{@today}</p>
             <h1 class="text-2xl font-semibold">Digest hôm nay</h1>
-            <p class="mt-1 text-sm text-base-content/70">{@current_scope.user.email}</p>
+            <p class="mt-1 text-sm text-m3-on-surface-variant">{@current_scope.user.email}</p>
           </div>
 
-          <button type="button" phx-click="generate" class="btn btn-primary">
+          <button type="button" phx-click="generate" class="m3-btn m3-btn-filled m3-state m3-ripple">
             Tạo digest hôm nay
           </button>
         </div>
 
         <div
           :if={empty_digest?(@digest)}
-          class="mt-10 rounded-box border border-base-300 bg-base-100 p-8 text-center"
+          class="mt-10 m3-card border border-m3-outline-variant p-8 text-center"
         >
           <h2 class="text-lg font-semibold">Chưa có digest hôm nay</h2>
-          <p class="mt-2 text-sm text-base-content/70">
+          <p class="mt-2 text-sm text-m3-on-surface-variant">
             Bấm “Tạo digest hôm nay” để gom các Summary đã hoàn tất từ Source bạn subscribe.
           </p>
         </div>
@@ -49,19 +49,19 @@ defmodule ReadoutWeb.DigestLive do
           <article
             :for={item <- @digest.items}
             id={"digest-item-#{item.id}"}
-            class="rounded-box border border-base-300 bg-base-100 p-5"
+            class="m3-card border border-m3-outline-variant p-5"
           >
             <a href={item.summary.article.canonical_url} class="text-lg font-semibold hover:underline">
               {item.summary.article.title}
             </a>
-            <p :if={item.summary.article.published_at} class="mt-1 text-xs text-base-content/60">
+            <p :if={item.summary.article.published_at} class="mt-1 text-xs text-m3-on-surface-variant">
               Xuất bản {Calendar.strftime(item.summary.article.published_at, "%Y-%m-%d %H:%M UTC")}
             </p>
-            <div class="mt-3 space-y-2 text-sm leading-6 text-base-content/80 [&_a]:link [&_a]:link-primary [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
+            <div class="mt-3 space-y-2 text-sm leading-6 text-m3-on-surface-variant [&_a]:text-m3-primary [&_a]:underline [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
               {render_markdown(item.summary.summary_text)}
             </div>
             <div :if={item.summary.tags != []} class="mt-3 flex flex-wrap gap-2">
-              <span :for={tag <- item.summary.tags} class="badge badge-primary">{tag}</span>
+              <span :for={tag <- item.summary.tags} class="m3-chip">{tag}</span>
             </div>
           </article>
         </div>
