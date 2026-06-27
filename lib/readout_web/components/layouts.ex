@@ -114,7 +114,7 @@ defmodule ReadoutWeb.Layouts do
               </.product_nav_link>
             </li>
             <li>
-              <.product_nav_link href="/sources" active={@active_product == :sources}>
+              <.product_nav_link href={~p"/sources"} active={@active_product == :sources}>
                 <:icon>rss_feed</:icon>
                 Sources
               </.product_nav_link>
@@ -140,7 +140,7 @@ defmodule ReadoutWeb.Layouts do
                   </.product_nav_link>
                 </li>
                 <li>
-                  <.product_nav_link href="/sources" active={@active_product == :sources} compact>
+                  <.product_nav_link href={~p"/sources"} active={@active_product == :sources} compact>
                     <:icon>rss_feed</:icon>
                     Sources
                   </.product_nav_link>
