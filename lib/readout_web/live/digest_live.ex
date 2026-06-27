@@ -5,10 +5,13 @@ defmodule ReadoutWeb.DigestLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket), do: Curation.subscribe_today_digest(socket.assigns.current_scope)
+
     {:ok,
      socket
      |> assign(:filter, "all")
      |> assign(:selected, nil)
+     |> assign(:digest_update_available, false)
      |> assign_digest()}
   end
 
@@ -16,10 +19,15 @@ defmodule ReadoutWeb.DigestLive do
   def handle_params(params, _uri, socket) do
     case params["id"] do
       nil ->
-        {:noreply, assign(socket, :selected, nil)}
+        socket =
+          socket
+          |> assign(:selected, nil)
+          |> refresh_digest_if_update_available()
+
+        {:noreply, socket}
 
       id ->
-        case Enum.find(items(socket.assigns.digest), &(&1.summary.id == id)) do
+        case find_item(socket.assigns.digest, id) do
           nil -> {:noreply, push_patch(socket, to: ~p"/digest")}
           item -> {:noreply, assign(socket, :selected, item.summary)}
         end
@@ -30,12 +38,30 @@ defmodule ReadoutWeb.DigestLive do
   def handle_event("generate", _params, socket) do
     {:ok, _digest} = Curation.generate_digest(socket.assigns.current_scope, Date.utc_today())
 
-    {:noreply, socket |> assign(:filter, "all") |> assign_digest()}
+    {:noreply, refresh_digest_list(socket, reset_filter?: true)}
+  end
+
+  @impl true
+  def handle_event("refresh-list", _params, socket) do
+    {:noreply, refresh_digest_list(socket)}
   end
 
   @impl true
   def handle_event("filter", %{"source" => source}, socket) do
     {:noreply, assign(socket, :filter, source)}
+  end
+
+  @impl true
+  def handle_info({:digest_updated, _date}, %{assigns: %{selected: nil}} = socket) do
+    {:noreply,
+     socket
+     |> assign(:digest_update_available, false)
+     |> assign_digest()}
+  end
+
+  @impl true
+  def handle_info({:digest_updated, _date}, socket) do
+    {:noreply, assign(socket, :digest_update_available, true)}
   end
 
   @impl true
@@ -73,6 +99,21 @@ defmodule ReadoutWeb.DigestLive do
               Regenerate
             </button>
           </header>
+
+          <div
+            :if={@digest_update_available}
+            id="digest-update-notice"
+            class="m3-card flex items-center justify-between gap-3 border border-m3-outline-variant bg-m3-surface-container-low px-4 py-3 text-sm"
+          >
+            <p class="font-medium">Digest updated</p>
+            <button
+              type="button"
+              phx-click="refresh-list"
+              class="m3-btn m3-btn-text m3-state m3-ripple"
+            >
+              Refresh list
+            </button>
+          </div>
 
           <form :if={@items != []} class="max-w-xs">
             <label class="m3-label" for="source-filter">Filter by source</label>
@@ -218,8 +259,50 @@ defmodule ReadoutWeb.DigestLive do
     |> assign(:has_sources, Ingestion.list_sources(scope) != [])
   end
 
+  defp refresh_digest_if_update_available(%{assigns: %{digest_update_available: true}} = socket) do
+    refresh_digest_list(socket)
+  end
+
+  defp refresh_digest_if_update_available(socket), do: socket
+
+  defp refresh_digest_list(socket, opts \\ []) do
+    selected_id = socket.assigns.selected && socket.assigns.selected.id
+
+    socket =
+      socket
+      |> maybe_reset_filter(opts)
+      |> assign(:digest_update_available, false)
+      |> assign_digest()
+
+    case selected_id do
+      nil ->
+        socket
+
+      id ->
+        case find_item(socket.assigns.digest, id) do
+          nil ->
+            socket
+            |> assign(:selected, nil)
+            |> push_patch(to: ~p"/digest")
+
+          item ->
+            assign(socket, :selected, item.summary)
+        end
+    end
+  end
+
+  defp maybe_reset_filter(socket, opts) do
+    if Keyword.get(opts, :reset_filter?, false) do
+      assign(socket, :filter, "all")
+    else
+      socket
+    end
+  end
+
   defp items(nil), do: []
   defp items(%{items: items}), do: items
+
+  defp find_item(digest, summary_id), do: Enum.find(items(digest), &(&1.summary.id == summary_id))
 
   defp visible_items(items, "all"), do: items
 

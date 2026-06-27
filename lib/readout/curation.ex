@@ -11,7 +11,9 @@ defmodule Readout.Curation do
     if date == Date.utc_today() do
       digest = upsert_digest(scope, date)
       summary_ids = eligible_summary_ids(scope, date)
-      insert_missing_items(digest, summary_ids)
+      changed? = sync_items(digest, summary_ids)
+
+      if changed?, do: broadcast_digest_updated(scope, date)
 
       {:ok, get_digest(scope, date)}
     else
@@ -21,6 +23,10 @@ defmodule Readout.Curation do
 
   def get_today_digest(%Scope{} = scope) do
     get_digest(scope, Date.utc_today())
+  end
+
+  def subscribe_today_digest(%Scope{} = scope) do
+    Phoenix.PubSub.subscribe(Readout.PubSub, digest_topic(scope, Date.utc_today()))
   end
 
   defp upsert_digest(%Scope{user: %{id: user_id}}, date) do
@@ -50,9 +56,35 @@ defmodule Readout.Curation do
     |> Repo.all()
   end
 
-  defp insert_missing_items(_digest, []), do: :ok
+  defp sync_items(%Digest{id: digest_id}, summary_ids) do
+    deleted_count = delete_stale_items(digest_id, summary_ids)
+    inserted_count = insert_missing_items(digest_id, summary_ids)
 
-  defp insert_missing_items(%Digest{id: digest_id}, summary_ids) do
+    deleted_count + inserted_count > 0
+  end
+
+  defp delete_stale_items(digest_id, []) do
+    {deleted_count, _} =
+      from(item in DigestItem, where: item.digest_id == ^digest_id)
+      |> Repo.delete_all()
+
+    deleted_count
+  end
+
+  defp delete_stale_items(digest_id, summary_ids) do
+    {deleted_count, _} =
+      from(item in DigestItem,
+        where: item.digest_id == ^digest_id,
+        where: item.summary_id not in ^summary_ids
+      )
+      |> Repo.delete_all()
+
+    deleted_count
+  end
+
+  defp insert_missing_items(_digest_id, []), do: 0
+
+  defp insert_missing_items(digest_id, summary_ids) do
     timestamp = now()
 
     items =
@@ -66,12 +98,13 @@ defmodule Readout.Curation do
         }
       end)
 
-    Repo.insert_all(DigestItem, items,
-      on_conflict: :nothing,
-      conflict_target: [:digest_id, :summary_id]
-    )
+    {inserted_count, _} =
+      Repo.insert_all(DigestItem, items,
+        on_conflict: :nothing,
+        conflict_target: [:digest_id, :summary_id]
+      )
 
-    :ok
+    inserted_count
   end
 
   defp get_digest(%Scope{user: %{id: user_id}}, date) do
@@ -96,6 +129,17 @@ defmodule Readout.Curation do
     end_at = DateTime.add(start_at, 1, :day)
     {start_at, end_at}
   end
+
+  defp broadcast_digest_updated(scope, date) do
+    Phoenix.PubSub.broadcast_from(
+      Readout.PubSub,
+      self(),
+      digest_topic(scope, date),
+      {:digest_updated, date}
+    )
+  end
+
+  defp digest_topic(%Scope{user: %{id: user_id}}, date), do: "users:#{user_id}:digest:#{date}"
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 end

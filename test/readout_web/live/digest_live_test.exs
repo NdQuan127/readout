@@ -344,6 +344,77 @@ defmodule ReadoutWeb.DigestLiveTest do
       refute html =~ "<script"
       refute html =~ "onclick"
     end
+
+    test "refreshes the visible list immediately when today's Digest changes without a selection",
+         %{conn: conn, scope: scope} do
+      generate_with(scope, [[title: "Already visible"]])
+
+      {:ok, view, _html} = live(conn, ~p"/digest")
+
+      new_summary = summary_fixture(scope, title: "Newly ready summary")
+      {:ok, _digest} = Curation.generate_digest(scope, Date.utc_today())
+
+      refute has_element?(view, "#digest-update-notice")
+      assert has_element?(view, "#digest-item-#{new_summary.id}")
+      assert has_element?(view, "#digest-items", "Newly ready summary")
+    end
+
+    test "shows a Digest updated notice without changing the visible list while reading",
+         %{conn: conn, scope: scope} do
+      selected = generate_with(scope, [[title: "Open summary"]]) |> hd()
+
+      {:ok, view, _html} = live(conn, ~p"/digest/#{selected.id}")
+
+      new_summary = summary_fixture(scope, title: "Fresh summary")
+      {:ok, _digest} = Curation.generate_digest(scope, Date.utc_today())
+
+      assert has_element?(view, "#digest-update-notice", "Digest updated")
+      assert has_element?(view, "#digest-update-notice button", "Refresh list")
+      assert has_element?(view, "#detail-pane", "Open summary")
+      refute has_element?(view, "#digest-item-#{new_summary.id}")
+      refute has_element?(view, "#digest-items", "Fresh summary")
+    end
+
+    test "clicking Refresh list updates the list and keeps the selected Summary open",
+         %{conn: conn, scope: scope} do
+      selected = generate_with(scope, [[title: "Still open"]]) |> hd()
+
+      {:ok, view, _html} = live(conn, ~p"/digest/#{selected.id}")
+
+      new_summary = summary_fixture(scope, title: "Refresh-visible summary")
+      {:ok, _digest} = Curation.generate_digest(scope, Date.utc_today())
+
+      view |> element("#digest-update-notice button", "Refresh list") |> render_click()
+
+      refute has_element?(view, "#digest-update-notice")
+      assert has_element?(view, "#digest-item-#{new_summary.id}")
+      assert has_element?(view, "#detail-pane", "Still open")
+      assert has_element?(view, ~s(#digest-item-#{selected.id}[aria-current="true"]))
+    end
+
+    test "clicking Refresh list patches to bare /digest when the selected Summary left today's Digest",
+         %{conn: conn, scope: scope} do
+      selected = generate_with(scope, [[title: "Removed from digest"]]) |> hd()
+
+      {:ok, view, _html} = live(conn, ~p"/digest/#{selected.id}")
+
+      Repo.get_by!(UserSource,
+        user_id: scope.user.id,
+        source_id: selected.article.source_id
+      )
+      |> Repo.delete!()
+
+      {:ok, _digest} = Curation.generate_digest(scope, Date.utc_today())
+
+      assert has_element?(view, "#digest-update-notice", "Digest updated")
+
+      view |> element("#digest-update-notice button", "Refresh list") |> render_click()
+
+      assert_patch(view, ~p"/digest")
+      assert has_element?(view, "#detail-empty")
+      refute has_element?(view, "#detail-pane", "Removed from digest")
+      refute has_element?(view, "#digest-item-#{selected.id}")
+    end
   end
 
   # Builds the listed Summaries then generates today's Digest, returning the
