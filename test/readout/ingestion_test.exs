@@ -157,6 +157,46 @@ defmodule Readout.IngestionTest do
     assert_enqueued(worker: ArticleSummarizeWorker, args: %{article_id: article.id})
   end
 
+  test "scrape worker ignores related posts and page chrome around article content" do
+    stub_valid_feed()
+    {:ok, user} = Accounts.register_user(%{email: "reader@example.com"})
+    scope = Scope.for_user(user)
+    {:ok, source} = Ingestion.subscribe_source(scope, %{url: "https://example.com/feed.xml"})
+
+    article =
+      Repo.insert!(%Article{
+        source_id: source.id,
+        canonical_url: "https://example.com/article",
+        title: "Article"
+      })
+
+    Req.Test.stub(Readout.HTTP, fn conn ->
+      Plug.Conn.send_resp(conn, 200, """
+      <html>
+        <body>
+          <header><p>Site navigation should not become Content.</p></header>
+          <article>
+            <p>First article paragraph.</p>
+            <p>Second article paragraph.</p>
+            <aside class="related-posts">
+              <p>Related article teaser should be ignored.</p>
+            </aside>
+            <footer>
+              <p>Author bio and newsletter prompt should be ignored.</p>
+            </footer>
+          </article>
+          <footer><p>Site footer should be ignored.</p></footer>
+        </body>
+      </html>
+      """)
+    end)
+
+    assert :ok = perform_job(ArticleScrapeWorker, %{article_id: article.id})
+
+    assert %ArticleContent{text: "First article paragraph.\n\nSecond article paragraph."} =
+             Repo.get_by(ArticleContent, article_id: article.id)
+  end
+
   test "subscription rejects content that is not an RSS or Atom document" do
     {:ok, user} = Accounts.register_user(%{email: "reader@example.com"})
     scope = Scope.for_user(user)

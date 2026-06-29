@@ -9,6 +9,52 @@ defmodule Readout.Ingestion do
   alias Readout.Repo
   alias Readout.Workers.{ArticleScrapeWorker, ArticleSummarizeWorker, SourceFetchWorker}
 
+  @content_root_selectors [
+    "article",
+    "main",
+    "[role=\"main\"]",
+    ".entry-content",
+    ".post-content",
+    ".article-content",
+    ".article-body",
+    ".post-body",
+    ".e-content",
+    ".h-entry",
+    ".hentry",
+    "#content"
+  ]
+
+  @noise_selectors [
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "svg",
+    "nav",
+    "header",
+    "footer",
+    "aside",
+    "form",
+    "button",
+    "iframe",
+    "[role=\"navigation\"]",
+    "[aria-hidden=\"true\"]",
+    ".related",
+    ".related-posts",
+    ".comments",
+    ".comment",
+    ".newsletter",
+    ".subscribe",
+    ".subscription",
+    ".share",
+    ".sharing",
+    ".sidebar",
+    ".ad",
+    ".ads",
+    ".advertisement",
+    ".promo"
+  ]
+
   def subscribe_source(%Scope{user: user}, attrs) do
     with {:ok, canonical_url} <- canonicalize_url(attrs[:url] || attrs["url"]),
          :ok <- validate_feed(canonical_url) do
@@ -189,10 +235,9 @@ defmodule Readout.Ingestion do
     with {:ok, html} <- Floki.parse_document(document) do
       content =
         html
-        |> Floki.find("p")
-        |> Enum.map(fn paragraph -> paragraph |> Floki.text() |> String.trim() end)
-        |> Enum.reject(&(&1 == ""))
-        |> Enum.join("\n\n")
+        |> prune_noise()
+        |> content_root()
+        |> paragraph_text()
 
       if content == "" do
         {:error, :content_not_found}
@@ -200,6 +245,46 @@ defmodule Readout.Ingestion do
         {:ok, content}
       end
     end
+  end
+
+  defp prune_noise(html) do
+    Enum.reduce(@noise_selectors, html, fn selector, tree ->
+      Floki.filter_out(tree, selector)
+    end)
+  end
+
+  defp content_root(html) do
+    candidates =
+      @content_root_selectors
+      |> Enum.flat_map(&Floki.find(html, &1))
+      |> Enum.uniq()
+
+    case candidates do
+      [] -> html
+      candidates -> Enum.max_by(candidates, &content_score/1)
+    end
+  end
+
+  defp content_score(root) do
+    paragraphs = Floki.find(root, "p")
+    paragraph_count = length(paragraphs)
+    text_length = root |> Floki.text() |> String.trim() |> String.length()
+
+    paragraph_count * 1_000 + text_length
+  end
+
+  defp paragraph_text(root) do
+    root
+    |> Floki.find("p")
+    |> Enum.map(fn paragraph -> paragraph |> Floki.text() |> normalize_text() end)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n\n")
+  end
+
+  defp normalize_text(text) do
+    text
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
   end
 
   defp broadcast_scraped(article) do

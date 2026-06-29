@@ -5,7 +5,7 @@ defmodule Readout.Analysis do
   alias Readout.Ingestion
   alias Readout.Repo
 
-  @max_content_length 15_000
+  @max_content_length 60_000
   @max_tags 3
 
   def summarize_article(article_id) do
