@@ -51,7 +51,6 @@ defmodule ReadoutWeb.SourcesLiveTest do
 
       assert html =~ "Source added. Fetching articles now."
       assert has_element?(view, "#source-list", "example.com")
-      assert has_element?(view, "#source-list", "https://example.com/feed.xml")
       assert has_element?(view, "#source-list", "Fetching articles")
       assert_enqueued(worker: SourceFetchWorker)
     end
@@ -76,17 +75,29 @@ defmodule ReadoutWeb.SourcesLiveTest do
       {:ok, view, _html} = live(conn, ~p"/sources")
 
       assert has_element?(view, "#source-list", "Industry News")
-      assert has_element?(view, "#source-list", "https://industry.example/feed.xml")
+      assert has_element?(view, "#source-list", "industry.example")
       assert has_element?(view, "#source-list", "Summaries ready")
       assert has_element?(view, "#source-list", "1 Article")
-      assert has_element?(view, "#source-list", "1 Summary")
 
       assert has_element?(view, "#source-list", "Fresh Wire")
-      assert has_element?(view, "#source-list", "https://fresh.example/feed.xml")
+      assert has_element?(view, "#source-list", "fresh.example")
       assert has_element?(view, "#source-list", "Articles found")
-      assert has_element?(view, "#source-list", "0 Summaries")
 
-      refute has_element?(view, "#source-list", "Recent Articles")
+      # The full URL and per-source stats live in the detail pane, not the list row.
+      refute has_element?(view, "#source-list", "https://industry.example/feed.xml")
+      refute has_element?(view, "#source-list", "Recent articles")
+
+      view
+      |> element(~s(#source-list a[href="/sources/#{summarized_source.id}"]))
+      |> render_click()
+
+      assert has_element?(
+               view,
+               ~s(#source-detail-pane a[href="https://industry.example/feed.xml"])
+             )
+
+      assert has_element?(view, "#source-detail-pane", "Total articles")
+      assert has_element?(view, "#source-detail-pane", "Recent articles")
     end
 
     test "existing Sources show a toolbar Add source action that opens an inline panel", %{
@@ -128,7 +139,6 @@ defmodule ReadoutWeb.SourcesLiveTest do
       assert html =~ "Source added. Fetching articles now."
       assert has_element?(view, "#source-list", "Existing Source")
       assert has_element?(view, "#source-list", "example.com")
-      assert has_element?(view, "#source-list", "https://example.com/new-feed.xml")
       assert_enqueued(worker: SourceFetchWorker)
     end
 

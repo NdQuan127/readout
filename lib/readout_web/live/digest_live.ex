@@ -115,24 +115,57 @@ defmodule ReadoutWeb.DigestLive do
             </button>
           </div>
 
-          <form :if={@items != []} class="max-w-xs">
-            <label class="m3-label" for="source-filter">Filter by source</label>
-            <select id="source-filter" name="source" phx-change="filter" class="m3-select">
-              <option value="all" selected={@filter == "all"}>All sources</option>
-              <option
-                :for={source <- @sources}
-                value={source.id}
-                selected={@filter == source.id}
-              >
-                {source.name}
-              </option>
-            </select>
-          </form>
+          <div
+            :if={@items != []}
+            id="source-filter"
+            class="relative max-w-xs"
+            phx-click-away={JS.hide(to: "#source-filter-menu")}
+          >
+            <span id="source-filter-label" class="m3-label">Filter by source</span>
+            <button
+              type="button"
+              phx-click={JS.toggle(to: "#source-filter-menu")}
+              aria-haspopup="listbox"
+              aria-labelledby="source-filter-label"
+              class="m3-select-trigger m3-state m3-ripple"
+            >
+              <span class="truncate">{filter_label(@filter, @sources)}</span>
+              <span class="msym shrink-0 text-xl text-m3-on-surface-variant" aria-hidden="true">
+                arrow_drop_down
+              </span>
+            </button>
+            <ul id="source-filter-menu" role="listbox" class="m3-menu hidden">
+              <li>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={to_string(@filter == "all")}
+                  phx-click={JS.hide(to: "#source-filter-menu") |> JS.push("filter")}
+                  phx-value-source="all"
+                  class={["m3-menu-item m3-state m3-ripple", @filter == "all" && "is-selected"]}
+                >
+                  All sources
+                </button>
+              </li>
+              <li :for={source <- @sources}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={to_string(@filter == source.id)}
+                  phx-click={JS.hide(to: "#source-filter-menu") |> JS.push("filter")}
+                  phx-value-source={source.id}
+                  class={["m3-menu-item m3-state m3-ripple", @filter == source.id && "is-selected"]}
+                >
+                  {source.name}
+                </button>
+              </li>
+            </ul>
+          </div>
 
           <div
             :if={@items == []}
             id="digest-empty"
-            class="m3-card border border-m3-outline-variant p-8 text-center"
+            class="m3-card bg-m3-surface-container-high p-8 text-center"
           >
             <h2 class="text-lg font-semibold">
               {if @has_sources, do: "No summaries ready yet", else: "No sources yet"}
@@ -155,17 +188,19 @@ defmodule ReadoutWeb.DigestLive do
 
           <ul :if={@items != []} id="digest-items" class="flex flex-col gap-3" role="list">
             <li
-              :for={item <- visible_items(@items, @filter)}
+              :for={{item, i} <- Enum.with_index(visible_items(@items, @filter))}
               id={"digest-item-#{item.summary.id}"}
+              style={"animation-delay:#{i * 40}ms"}
               aria-current={to_string(selected?(@selected, item.summary))}
             >
               <.link
                 patch={~p"/digest/#{item.summary.id}"}
                 class={[
-                  "m3-card m3-state m3-ripple block border p-4",
+                  "m3-card m3-state m3-ripple block p-4 transition-transform duration-200",
                   if(selected?(@selected, item.summary),
-                    do: "border-m3-primary bg-m3-secondary-container",
-                    else: "border-m3-outline-variant"
+                    do: "bg-m3-secondary-container text-m3-on-secondary-container",
+                    else:
+                      "bg-m3-surface-container-high shadow-[0_1px_2px_rgb(0_0_0/0.04)] hover:-translate-y-0.5"
                   )
                 ]}
               >
@@ -205,25 +240,25 @@ defmodule ReadoutWeb.DigestLive do
             ← Back to list
           </.link>
 
-          <article :if={@selected} class="m3-card border border-m3-outline-variant p-6">
+          <article :if={@selected} class="mx-auto w-full max-w-[680px]">
             <p class="text-xs font-medium text-m3-on-surface-variant">
               {@selected.article.source.name}
               <span :if={@selected.article.published_at}>
                 · {Calendar.strftime(@selected.article.published_at, "%b %-d, %H:%M")}
               </span>
             </p>
-            <h1 class="mt-1 text-xl font-semibold leading-tight">{@selected.article.title}</h1>
+            <h1 class="mt-2 text-2xl font-semibold leading-tight">{@selected.article.title}</h1>
             <div :if={@selected.tags != []} class="mt-3 flex flex-wrap gap-1.5">
               <span :for={tag <- @selected.tags} class="m3-chip">{tag}</span>
             </div>
-            <div class="reading mt-5 space-y-3 text-[15px] leading-7 [&_a]:text-m3-primary [&_a]:underline [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
+            <div class="reading mt-6">
               {render_markdown(@selected.summary_text)}
             </div>
             <a
               href={@selected.article.canonical_url}
               target="_blank"
               rel="noopener"
-              class="m3-btn m3-btn-outlined m3-state m3-ripple mt-6"
+              class="m3-btn m3-btn-outlined m3-state m3-ripple mt-8"
             >
               Read original
             </a>
@@ -232,10 +267,10 @@ defmodule ReadoutWeb.DigestLive do
           <div
             :if={!@selected}
             id="detail-empty"
-            class="m3-card grid place-items-center border border-dashed border-m3-outline-variant p-10 text-center"
+            class="grid h-full place-items-center px-6 text-center"
           >
             <div>
-              <span class="msym text-4xl text-m3-on-surface-variant" aria-hidden="true">
+              <span class="msym text-5xl text-m3-outline" aria-hidden="true">
                 article
               </span>
               <h2 class="mt-3 text-lg font-semibold">Select an article</h2>
@@ -308,6 +343,15 @@ defmodule ReadoutWeb.DigestLive do
 
   defp visible_items(items, source_id),
     do: Enum.filter(items, &(&1.summary.article.source_id == source_id))
+
+  defp filter_label("all", _sources), do: "All sources"
+
+  defp filter_label(source_id, sources) do
+    case Enum.find(sources, &(&1.id == source_id)) do
+      nil -> "All sources"
+      source -> source.name
+    end
+  end
 
   defp list_sources(items) do
     items

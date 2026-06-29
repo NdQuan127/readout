@@ -199,15 +199,15 @@ defmodule ReadoutWeb.DigestLiveTest do
       {:ok, view, _html} = live(conn, ~p"/digest/#{from_a.id}")
 
       view
-      |> element("#source-filter")
-      |> render_change(%{"source" => from_b.article.source_id})
+      |> element(~s(#source-filter-menu button[phx-value-source="#{from_b.article.source_id}"]))
+      |> render_click()
 
       refute has_element?(view, "#digest-item-#{from_a.id}")
       assert has_element?(view, "#digest-item-#{from_b.id}")
       # the open article stays in the detail pane even though it is filtered out
       assert has_element?(view, "#detail-pane", "Alpha story")
 
-      view |> element("#source-filter") |> render_change(%{"source" => "all"})
+      view |> element(~s(#source-filter-menu button[phx-value-source="all"])) |> render_click()
       assert has_element?(view, "#digest-item-#{from_a.id}")
       assert has_element?(view, "#digest-item-#{from_b.id}")
     end
@@ -227,15 +227,22 @@ defmodule ReadoutWeb.DigestLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/digest")
 
-      view |> element("#source-filter") |> render_change(%{"source" => from_a.article.source_id})
+      view
+      |> element(~s(#source-filter-menu button[phx-value-source="#{from_a.article.source_id}"]))
+      |> render_click()
+
       refute has_element?(view, "#digest-item-#{from_b.id}")
 
       view |> element("#generate-digest") |> render_click()
 
-      # the filter is back to "all": both items show again, and the dropdown reflects it
+      # the filter is back to "all": both items show again, and the menu reflects it
       assert has_element?(view, "#digest-item-#{from_a.id}")
       assert has_element?(view, "#digest-item-#{from_b.id}")
-      assert has_element?(view, ~s(#source-filter option[value="all"][selected]))
+
+      assert has_element?(
+               view,
+               ~s(#source-filter-menu button[phx-value-source="all"][aria-selected="true"])
+             )
     end
 
     test "orders digest items by Summary-ready time descending", %{conn: conn, scope: scope} do

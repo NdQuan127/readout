@@ -96,11 +96,11 @@ defmodule ReadoutWeb.Layouts do
 
   def product_shell(assigns) do
     ~H"""
-    <div id="product-shell" class="min-h-screen bg-m3-surface text-m3-on-surface md:flex">
-      <aside class="hidden w-64 shrink-0 border-r border-m3-outline-variant bg-m3-surface-container-low md:flex md:min-h-screen md:flex-col">
-        <div class="flex h-20 items-center px-6">
-          <a href={~p"/digest"} class="flex w-fit items-center gap-3">
-            <img src={~p"/images/logo.svg"} width="36" height="36" alt="" />
+    <div id="product-shell" class="flex h-screen overflow-hidden bg-m3-surface text-m3-on-surface">
+      <aside class="hidden w-60 shrink-0 flex-col bg-m3-surface-container md:flex">
+        <div class="flex h-16 items-center px-6">
+          <a href={~p"/digest"} class="flex w-fit items-center gap-2.5">
+            <img src={~p"/images/logo.svg"} width="30" height="30" alt="" />
             <span class="text-base font-semibold tracking-wide">Readout</span>
           </a>
         </div>
@@ -121,45 +121,66 @@ defmodule ReadoutWeb.Layouts do
             </li>
           </ul>
         </nav>
+
+        <div class="px-4 py-4">
+          <p
+            class="truncate text-xs text-m3-on-surface-variant"
+            title={@current_scope.user.email}
+          >
+            {@current_scope.user.email}
+          </p>
+          <div class="mt-2 flex items-center gap-4 text-sm">
+            <.link
+              href={~p"/users/settings"}
+              class="text-m3-on-surface-variant hover:text-m3-primary"
+            >
+              Settings
+            </.link>
+            <.link
+              href={~p"/users/log-out"}
+              method="delete"
+              class="text-m3-on-surface-variant hover:text-m3-primary"
+            >
+              Log out
+            </.link>
+          </div>
+        </div>
       </aside>
 
-      <div class="min-w-0 flex-1">
-        <header class="sticky top-0 z-30 border-b border-m3-outline-variant bg-m3-surface/95 backdrop-blur supports-[backdrop-filter]:bg-m3-surface/80">
-          <div class="flex min-h-16 flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-            <a href={~p"/digest"} class="flex items-center gap-2 md:hidden">
-              <img src={~p"/images/logo.svg"} width="32" height="32" alt="" />
-              <span class="text-sm font-semibold tracking-wide">Readout</span>
-            </a>
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header class="flex h-16 shrink-0 items-center gap-3 px-4 sm:px-6">
+          <a href={~p"/digest"} class="flex items-center gap-2 md:hidden">
+            <img src={~p"/images/logo.svg"} width="28" height="28" alt="" />
+            <span class="text-sm font-semibold tracking-wide">Readout</span>
+          </a>
 
-            <nav aria-label="Product" class="order-3 w-full md:hidden">
-              <ul class="flex gap-2">
-                <li>
-                  <.product_nav_link href={~p"/digest"} active={@active_product == :digest} compact>
-                    <:icon>article</:icon>
-                    Digest
-                  </.product_nav_link>
-                </li>
-                <li>
-                  <.product_nav_link href={~p"/sources"} active={@active_product == :sources} compact>
-                    <:icon>rss_feed</:icon>
-                    Sources
-                  </.product_nav_link>
-                </li>
-              </ul>
-            </nav>
+          <nav aria-label="Product" class="md:hidden">
+            <ul class="flex gap-2">
+              <li>
+                <.product_nav_link href={~p"/digest"} active={@active_product == :digest} compact>
+                  <:icon>article</:icon>
+                  Digest
+                </.product_nav_link>
+              </li>
+              <li>
+                <.product_nav_link href={~p"/sources"} active={@active_product == :sources} compact>
+                  <:icon>rss_feed</:icon>
+                  Sources
+                </.product_nav_link>
+              </li>
+            </ul>
+          </nav>
 
-            <div class="ml-auto flex items-center gap-3 text-sm text-m3-on-surface-variant">
-              <span class="hidden max-w-[18rem] truncate sm:inline">{@current_scope.user.email}</span>
-              <.link href={~p"/users/settings"} class="hover:text-m3-primary">Settings</.link>
-              <.link href={~p"/users/log-out"} method="delete" class="hover:text-m3-primary">
-                Log out
-              </.link>
-              <.theme_toggle />
-            </div>
+          <div class="ml-auto flex items-center gap-3 text-sm text-m3-on-surface-variant">
+            <.link href={~p"/users/settings"} class="hover:text-m3-primary md:hidden">Settings</.link>
+            <.link href={~p"/users/log-out"} method="delete" class="hover:text-m3-primary md:hidden">
+              Log out
+            </.link>
+            <.theme_toggle />
           </div>
         </header>
 
-        <main class="px-4 py-6 sm:px-6 lg:px-8">
+        <main class="min-h-0 flex-1">
           {render_slot(@inner_block)}
         </main>
       </div>

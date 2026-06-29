@@ -55,6 +55,7 @@ defmodule ReadoutWeb.Router do
       live "/digest", DigestLive, :index
       live "/digest/:id", DigestLive, :show
       live "/sources", SourcesLive, :index
+      live "/sources/:id", SourcesLive, :show
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
